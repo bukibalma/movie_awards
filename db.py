@@ -54,6 +54,15 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS tmdb_matches (
+    normalized_title TEXT PRIMARY KEY,
+    tmdb_id INTEGER,
+    year INTEGER,
+    matched_title TEXT,
+    poster_path TEXT,
+    resolved_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 
@@ -65,6 +74,7 @@ def init_db():
         "ALTER TABLE ceremonies ADD COLUMN last_attempt_at TEXT",
         "ALTER TABLE ceremonies ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE watched_films ADD COLUMN source TEXT NOT NULL DEFAULT 'import'",
+        "ALTER TABLE tmdb_matches ADD COLUMN poster_path TEXT",
     ):
         try:
             conn.execute(stmt)
@@ -296,6 +306,32 @@ def set_setting(key, value):
         "INSERT INTO settings (key, value) VALUES (?,?) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         (key, value),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---- TMDb match cache ----
+
+def get_tmdb_match(normalized_title):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT * FROM tmdb_matches WHERE normalized_title=?", (normalized_title,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def set_tmdb_match(normalized_title, tmdb_id, year, matched_title, poster_path=None):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO tmdb_matches (normalized_title, tmdb_id, year, matched_title, poster_path, resolved_at) "
+        "VALUES (?,?,?,?,?, datetime('now')) "
+        "ON CONFLICT(normalized_title) DO UPDATE SET "
+        "tmdb_id=excluded.tmdb_id, year=excluded.year, "
+        "matched_title=excluded.matched_title, poster_path=excluded.poster_path, "
+        "resolved_at=excluded.resolved_at",
+        (normalized_title, tmdb_id, year, matched_title, poster_path),
     )
     conn.commit()
     conn.close()

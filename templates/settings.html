@@ -2,7 +2,35 @@
 {% block content %}
 <h1>Settings</h1>
 
-<section class="category-block">
+<section class="category-block" id="imdb">
+  <h3>IMDb import (one-time backfill)</h3>
+  <p class="hint">
+    From IMDb: go to <em>Your Ratings</em> (or any custom list), click the three-dot menu, then
+    <em>Export</em> — it downloads a CSV. Upload it here, or paste the CSV content or a plain
+    list of titles below.
+  </p>
+  <p class="hint">
+    <strong>Fully automatic option:</strong> drop the exported CSV into the <code>imdb-import/</code>
+    folder next to docker-compose.yml on your server — the app checks it every 5 minutes and
+    imports on its own, no need to come to this page at all.
+  </p>
+  <p class="hint">
+    This is meant as a one-time backfill. For ongoing tracking, use Plex sync below — it has a
+    real API, so newly watched movies sync automatically from here on, without needing IMDb at all.
+  </p>
+
+  <form method="post" action="{{ url_for('watched_import') }}" enctype="multipart/form-data" class="manual-form">
+    <input type="file" name="csvfile" accept=".csv,text/csv">
+    <button type="submit">Import file</button>
+  </form>
+
+  <form method="post" action="{{ url_for('watched_import') }}" class="stack-form">
+    <textarea name="csv_text" rows="6" placeholder="...or paste CSV content, or one title per line"></textarea>
+    <button type="submit">Import pasted text</button>
+  </form>
+</section>
+
+<section class="category-block" id="plex">
   <h3>Plex — automatic watched sync</h3>
   <p class="hint">
     Connect your Plex server and any movie marked watched there gets added to your watched list
@@ -34,5 +62,42 @@
     <input type="text" name="plex_token" placeholder="Plex token" required>
     <button type="submit">Save & connect</button>
   </form>
+</section>
+
+<section class="category-block" id="tmdb">
+  <h3>TMDb — posters & exact Radarr matching</h3>
+  <p class="hint">
+    Connect a free TMDb key to show posters throughout the app and resolve every film to an exact
+    TMDb ID. Without this, the <a href="{{ url_for('unwatched_page') }}">Radarr export</a> sends
+    bare titles and Radarr guesses the movie via its own search — usually fine, occasionally wrong
+    for ambiguous or very common titles.
+  </p>
+  <p class="hint">
+    Free key: <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a>
+    → request an API key (choose "Developer") → use the <strong>API Key (v3 auth)</strong> value.
+  </p>
+
+  {% if tmdb_configured %}
+    <p class="hint">
+      Status: <span class="status-badge status-scraped">connected</span>
+      · {{ resolved_count }} of {{ unwatched_count }} unwatched films resolved to an exact ID
+    </p>
+    <form method="post" action="{{ url_for('settings_tmdb_resolve_now') }}">
+      <button type="submit">Resolve now</button>
+    </form>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('settings_tmdb_save') }}" class="manual-form">
+    <input type="text" name="tmdb_api_key" placeholder="TMDb API key" required>
+    <button type="submit">Save & connect</button>
+  </form>
+
+  <h4>Radarr</h4>
+  <p class="hint">Live feed of your to-watch list, in the format Radarr's Custom List import expects:</p>
+  <p class="hint"><code>{{ radarr_url }}</code></p>
+  <p class="hint">
+    In Radarr: Settings → Lists → <strong>+</strong> → <em>Custom List</em> (under "Advanced" if
+    it's hidden) → paste that URL → save.
+  </p>
 </section>
 {% endblock %}

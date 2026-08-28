@@ -18,11 +18,14 @@ fixed interval — so it works automatically as long as the container is up.
 """
 import datetime
 import logging
+import threading
 import time
 
 import db
 import scraper
 import plex_client
+import tmdb_client
+import films
 from config import AWARDS
 
 log = logging.getLogger("scheduler")
@@ -30,7 +33,10 @@ log = logging.getLogger("scheduler")
 RECENT_WINDOW_YEARS = 1     # re-scrape ceremonies within +/- this many years of today
 FUTURE_HORIZON_YEARS = 2    # how far ahead to seed placeholder ceremonies
 PAST_HORIZON_YEARS = 5      # how far back to seed ceremonies
-REQUEST_DELAY_SECONDS = 1.5 # be polite to Wikipedia between requests
+REQUEST_DELAY_SECONDS = 3   # be polite to Wikipedia between requests — the initial
+                             # seed run hits ~80 ceremonies, so this adds up on purpose
+
+_cycle_lock = threading.Lock()
 
 
 def _year_range():
@@ -73,19 +79,62 @@ def scrape_one(ceremony):
 
 
 def run_cycle():
-    log.info("Auto-update cycle starting")
-    ensure_seeded()
+    if not _cycle_lock.acquire(blocking=False):
+        log.info("Auto-update cycle already running — skipping this trigger")
+        return
+    try:
+        log.info("Auto-update cycle starting")
+        ensure_seeded()
 
-    current_year = datetime.date.today().year
-    recent_years = (current_year - RECENT_WINDOW_YEARS, current_year + RECENT_WINDOW_YEARS)
-    max_year = current_year + 1  # don't bother attempting years further out; no page will exist
+        current_year = datetime.date.today().year
+        recent_years = (current_year - RECENT_WINDOW_YEARS, current_year + RECENT_WINDOW_YEARS)
+        max_year = current_year + 1  # don't bother attempting years further out; no page will exist
 
-    due = db.ceremonies_due_for_scrape(recent_years, max_year)
-    log.info("Auto-update cycle: %d ceremonies due", len(due))
-    for ceremony in due:
-        scrape_one(ceremony)
-        time.sleep(REQUEST_DELAY_SECONDS)
-    log.info("Auto-update cycle finished")
+        due = db.ceremonies_due_for_scrape(recent_years, max_year)
+        log.info("Auto-update cycle: %d ceremonies due", len(due))
+        for ceremony in due:
+            scrape_one(ceremony)
+            time.sleep(REQUEST_DELAY_SECONDS)
+        log.info("Auto-update cycle finished")
+    finally:
+        _cycle_lock.release()
+
+
+def resolve_tmdb_matches():
+    """
+    Resolves nominated films AND watched films to exact TMDb IDs + poster
+    images (posters show throughout the app; the Radarr export additionally
+    relies on the ID for unwatched films specifically). Only runs once a
+    TMDb API key has been saved (Settings page). Results are cached
+    indefinitely per normalized title — a film's TMDb ID doesn't change —
+    so this only does work for titles it hasn't seen before.
+    """
+    api_key = db.get_setting("tmdb_api_key")
+    if not api_key:
+        return
+
+    combined = films.titles_needing_posters()
+    resolved = 0
+    for norm, g in combined.items():
+        if db.get_tmdb_match(norm) is not None:
+            continue  # already resolved (or already a confirmed miss)
+        if g.get("appearances"):
+            hint = films.year_hint(g["appearances"], AWARDS)
+        else:
+            hint = g.get("watched_year")
+        try:
+            match = tmdb_client.search_movie(api_key, g["title"], year_hint=hint)
+        except Exception as e:
+            log.warning("TMDb lookup failed for %s: %s", g["title"], e)
+            continue
+        if match:
+            db.set_tmdb_match(norm, match["tmdb_id"], match["year"], match["title"], match["poster_path"])
+        else:
+            db.set_tmdb_match(norm, None, None, None, None)  # cache the miss too
+        resolved += 1
+        time.sleep(0.3)  # TMDb's limits are generous, but no reason to hammer it
+    if resolved:
+        log.info("TMDb resolution: processed %d film(s)", resolved)
 
 
 def sync_plex():
@@ -132,5 +181,8 @@ def start(interval_hours=24 * 7):
                next_run_time=datetime.datetime.now())
     # Plex is a real local API, so this can run frequently without concern.
     bg.add_job(sync_plex, "interval", minutes=15, next_run_time=datetime.datetime.now())
+    # TMDb resolution is cached per title, so cheap to check often — new
+    # unwatched films get an ID within a few minutes rather than a week.
+    bg.add_job(resolve_tmdb_matches, "interval", minutes=30, next_run_time=datetime.datetime.now())
     bg.start()
     return bg

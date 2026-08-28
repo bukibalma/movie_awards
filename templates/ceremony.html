@@ -23,9 +23,14 @@
     <ul class="nominee-list">
       {% for n in entry.nominations %}
         <li class="{{ 'winner' if n.is_winner else '' }}">
+          {% if n.poster %}
+            <img class="poster-thumb" src="{{ n.poster }}" alt="">
+          {% else %}
+            <span class="poster-thumb placeholder">🎬</span>
+          {% endif %}
           {% if n.is_winner %}🏆{% endif %}
           <strong>{{ n.film }}</strong>{% if n.nominee %} — {{ n.nominee }}{% endif %}
-          {% if n.watched %}<span class="watched-badge">✓ watched</span>{% endif %}
+          {% if n.watched %}<span class="watched-tick" title="Watched">✓</span>{% endif %}
         </li>
       {% endfor %}
     </ul>

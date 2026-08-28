@@ -89,7 +89,10 @@ mostly just hit unchanged Wikipedia pages. Each cycle:
    guesses the Wikipedia page title (e.g. "98th Academy Awards"), falls
    back to Wikipedia's search API if the guess is off, and just retries on
    the next weekly cycle if the page doesn't exist yet (nominations
-   announced, page not created yet, etc.).
+   announced, page not created yet, etc.). Requests are spaced out (a few
+   seconds apart, with automatic backoff on a 429) and only one cycle can
+   run at a time, so the first big run — which seeds ~80 ceremonies across
+   all 10 awards — doesn't hammer Wikipedia all at once.
 3. **Re-checks** any ceremony within a year of today even if it was already
    scraped, so nominee lists that get filled in and winners that get added
    the night of the ceremony are picked up automatically.
@@ -151,19 +154,56 @@ insensitive), not IMDb ID, since Wikipedia doesn't give us one — so two
 different films that happen to share a bare title would collide. Fine for
 personal use, just worth knowing.
 
+## Interface
+
+- **Left sidebar**: Awards, Watched list, To watch list.
+- **Top-right ⚙ Settings dropdown**: jumps to the IMDb import, Plex, and
+  TMDb/Radarr sections — all consolidated on one Settings page.
+- **Posters**: once TMDb is connected (see below), posters show on the
+  Awards ceremony pages, Watched list, and To-watch list.
+- **Watched ticks**: on ceremony pages, any nominee already on your
+  watched list shows a ✓.
+
+## Radarr integration
+
+The "Not watched" page exposes a live JSON feed at `/radarr.json` — the
+format Radarr's **Custom List** import type expects.
+
+In Radarr: **Settings → Lists → + → Custom List** (under "Advanced" if
+it's hidden) → paste the URL shown on the Not-watched page → save. Radarr
+polls it on whatever interval you configure and adds anything new.
+
+**For exact matches, connect TMDb** (Settings page in this app — a free
+API key from themoviedb.org). Without it, the feed sends bare titles and
+Radarr guesses the match via its own search, which is usually right but
+can occasionally pick the wrong film for an ambiguous or very common
+title. With a TMDb key, a background job resolves every unwatched film to
+an exact TMDb ID (cross-checking release year inferred from which
+ceremony it appeared in — award shows typically honor the *previous*
+year's films, festivals the same year), and the feed sends that ID
+directly. Radarr's match is then exact, not a guess. The Not-watched page
+shows which films are ID-matched vs. still title-only.
+
 ## Known limitations
 
 Wikipedia's award pages aren't perfectly standardized — table structure
 varies a bit between awards and even between years of the same award. The
-scraper handles the common "wikitable" pattern used across most
-WikiProject Film Awards pages, but:
+scraper only pulls from sections that are plausibly about nominations
+(skipping cast lists, In Memoriam tributes, box office tables, and
+"films with multiple nominations" summary tables, which otherwise produce
+garbage), and identifies film titles by their italics — Wikipedia's own
+convention for titles — rather than guessing from word order, since that
+position flips between categories (e.g. "Film – Person" for Best Picture
+vs. "Person – Film" for Best Actor). Still:
 
 - Some categories may be skipped if a page uses a nonstandard layout.
-- Festival pages (Cannes, Berlinale, Venice, Sundance) list *selections* and
-  *prizes* rather than uniform "nominee" categories, so results there are
-  the closest analogue (competition entries / official awards).
-- Anything the scraper misses can be added by hand from the ceremony page
-  — there's a manual "Add nomination" form at the bottom of every ceremony.
+- The nominee/person name isn't captured anymore — only the film. This
+  was a deliberate tradeoff: reliably identifying *who* was nominated
+  requires knowing each category's word order, which varies too much to
+  get right consistently, whereas the film is almost always italicized
+  and unambiguous. You can still add a nominee name by hand on the
+  manual-add form if you want it for a specific entry.
+- Anything the scraper misses can be added by hand from the ceremony page.
 - If a scrape looks off, just re-scrape — it's idempotent, it always
   replaces (never duplicates) that ceremony's data.
 
@@ -173,8 +213,10 @@ WikiProject Film Awards pages, but:
 app.py          Flask routes
 db.py           SQLite schema + queries
 scraper.py      Wikipedia fetch + HTML parsing
-scheduler.py    Background jobs (Wikipedia scrape, drop-folder scan, Plex sync)
+scheduler.py    Background jobs (Wikipedia scrape, drop-folder scan, Plex sync, TMDb resolution)
 plex_client.py  Plex watch-history API client
+tmdb_client.py  TMDb search/resolution client
+films.py        Shared film-grouping logic (app.py + scheduler.py)
 imdb_import.py  IMDb CSV/text parsing
 watch_import.py Drop-folder watcher
 config.py       Award list and Wikipedia title patterns

@@ -41,6 +41,7 @@ AWARDS = {
         "name": "Cannes Film Festival",
         "kind": "year",
         "title_template": "{year} Cannes Film Festival",
+        "festival": True,
     },
     "berlinale": {
         "name": "Berlin International Film Festival (Berlinale)",
@@ -48,6 +49,7 @@ AWARDS = {
         "title_template": "{ordinal} Berlin International Film Festival",
         "base_year": 2026,
         "base_ordinal": 76,
+        "festival": True,
     },
     "venice": {
         "name": "Venice International Film Festival",
@@ -55,11 +57,13 @@ AWARDS = {
         "title_template": "{ordinal} Venice International Film Festival",
         "base_year": 2026,
         "base_ordinal": 83,
+        "festival": True,
     },
     "sundance": {
         "name": "Sundance Film Festival",
         "kind": "year",
         "title_template": "{year} Sundance Film Festival",
+        "festival": True,
     },
     "spirit": {
         "name": "Independent Spirit Awards",

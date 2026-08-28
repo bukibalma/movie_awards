@@ -1,12 +1,13 @@
 import datetime
 import os
 import threading
-from flask import Flask, render_template, redirect, url_for, request, flash
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 
 import db
 import scraper
 import scheduler
 import imdb_import
+import films
 from config import AWARDS
 from utils import normalize_title
 
@@ -66,7 +67,9 @@ def ceremony_detail(ceremony_id):
     watched = db.watched_normalized_titles()
     for entry in data:
         for n in entry["nominations"]:
-            n["watched"] = normalize_title(n["film"]) in watched
+            norm = normalize_title(n["film"])
+            n["watched"] = norm in watched
+            n["poster"] = films.poster_url(norm)
     return render_template("ceremony.html", ceremony=ceremony, award=award, data=data)
 
 
@@ -135,26 +138,69 @@ def search():
     return render_template("search.html", q=q, results=results, awards=AWARDS)
 
 
-def _group_nominated_films():
-    """Group all nominations by normalized title -> {title, appearances[]}."""
-    groups = {}
-    for r in db.all_nominations_with_context():
-        norm = normalize_title(r["film"])
-        if not norm:
-            continue
-        g = groups.setdefault(norm, {"title": r["film"], "appearances": []})
-        g["appearances"].append(r)
-    return groups
+@app.route("/unwatched")
+def unwatched_page():
+    groups = films.group_nominated_films()
+    unwatched = films.unwatched_groups()
+    film_list = []
+    for norm, g in unwatched.items():
+        match = db.get_tmdb_match(norm)
+        g["tmdb_matched"] = bool(match and match.get("tmdb_id"))
+        g["poster"] = films.poster_url(norm)
+        film_list.append(g)
+    film_list.sort(key=lambda g: g["title"].lower())
+
+    tmdb_configured = bool(db.get_setting("tmdb_api_key"))
+    return render_template(
+        "unwatched.html", films=film_list, total=len(groups), awards=AWARDS,
+        radarr_url=url_for("radarr_export", _external=True),
+        tmdb_configured=tmdb_configured,
+    )
+
+
+@app.route("/radarr.json")
+def radarr_export():
+    """
+    A plain JSON array of unwatched nominated films — the format Radarr's
+    'Custom List' import type expects. When a title has been resolved to a
+    TMDb ID (see Settings), we send that ID directly so Radarr's match is
+    exact rather than a guess from a bare title; otherwise we fall back to
+    title-only, which Radarr will look up itself on import.
+    """
+    unwatched = films.unwatched_groups()
+    payload = []
+    for norm, g in unwatched.items():
+        match = db.get_tmdb_match(norm)
+        if match and match.get("tmdb_id"):
+            payload.append({
+                "tmdbId": match["tmdb_id"],
+                "title": match["matched_title"] or g["title"],
+                "year": match["year"],
+            })
+        else:
+            payload.append({"title": g["title"]})
+    payload.sort(key=lambda d: d["title"].lower())
+    return jsonify(payload)
 
 
 @app.route("/settings")
 def settings_page():
     plex_configured = bool(db.get_setting("plex_base_url") and db.get_setting("plex_token"))
+    tmdb_configured = bool(db.get_setting("tmdb_api_key"))
+    unwatched_count = len(films.unwatched_groups())
+    resolved_count = sum(
+        1 for norm in films.unwatched_groups()
+        if (db.get_tmdb_match(norm) or {}).get("tmdb_id")
+    ) if tmdb_configured else 0
     return render_template(
         "settings.html",
         plex_base_url=db.get_setting("plex_base_url", ""),
         plex_configured=plex_configured,
         plex_last_synced=db.get_setting("plex_last_synced"),
+        tmdb_configured=tmdb_configured,
+        unwatched_count=unwatched_count,
+        resolved_count=resolved_count,
+        radarr_url=url_for("radarr_export", _external=True),
     )
 
 
@@ -189,9 +235,40 @@ def settings_plex_sync_now():
     return redirect(url_for("settings_page"))
 
 
+@app.route("/settings/tmdb", methods=["POST"])
+def settings_tmdb_save():
+    import tmdb_client
+
+    api_key = request.form.get("tmdb_api_key", "").strip()
+    if not api_key:
+        flash("TMDb API key is required.", "error")
+        return redirect(url_for("settings_page"))
+
+    try:
+        tmdb_client.test_api_key(api_key)
+    except Exception as e:
+        flash(f"Couldn't verify that TMDb key: {e}", "error")
+        return redirect(url_for("settings_page"))
+
+    db.set_setting("tmdb_api_key", api_key)
+    flash("TMDb key saved. Resolving film IDs in the background — this can take a few minutes.", "success")
+    threading.Thread(target=scheduler.resolve_tmdb_matches, daemon=True).start()
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/settings/tmdb/resolve-now", methods=["POST"])
+def settings_tmdb_resolve_now():
+    threading.Thread(target=scheduler.resolve_tmdb_matches, daemon=True).start()
+    flash("TMDb resolution started in the background.", "success")
+    return redirect(url_for("settings_page"))
+
+
 @app.route("/watched")
 def watched_page():
-    return render_template("watched.html", watched=db.list_watched())
+    watched = db.list_watched()
+    for w in watched:
+        w["poster"] = films.poster_url(normalize_title(w["title"]))
+    return render_template("watched.html", watched=watched)
 
 
 @app.route("/watched/import", methods=["POST"])
@@ -218,19 +295,6 @@ def watched_clear():
     db.clear_watched()
     flash("Watched list cleared.", "success")
     return redirect(url_for("watched_page"))
-
-
-@app.route("/unwatched")
-def unwatched_page():
-    groups = _group_nominated_films()
-    watched = db.watched_normalized_titles()
-    films = sorted(
-        (g for norm, g in groups.items() if norm not in watched),
-        key=lambda g: g["title"].lower(),
-    )
-    return render_template(
-        "unwatched.html", films=films, total=len(groups), awards=AWARDS
-    )
 
 
 @app.route("/add-year", methods=["POST"])

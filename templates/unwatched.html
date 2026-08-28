@@ -1,17 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Not yet watched</h1>
+<h1>To watch list</h1>
 <p class="hint">
   {{ films|length }} of {{ total }} nominated films aren't on your watched list.
   Matching is by title, so double-check anything that looks like it should be crossed off already.
 </p>
+<p class="hint">
+  Import this list into Radarr for automatic downloads via
+  <a href="{{ url_for('settings_page') }}#tmdb">Settings → TMDb / Radarr</a>.
+</p>
 
 <table class="list-table">
-  <thead><tr><th>Film</th><th>Nominated for</th></tr></thead>
+  <thead>
+    <tr>
+      <th></th><th>Film</th>{% if tmdb_configured %}<th>Radarr match</th>{% endif %}<th>Nominated for</th>
+    </tr>
+  </thead>
   <tbody>
   {% for f in films %}
     <tr>
+      <td>
+        {% if f.poster %}
+          <img class="poster-thumb" src="{{ f.poster }}" alt="">
+        {% else %}
+          <span class="poster-thumb placeholder">🎬</span>
+        {% endif %}
+      </td>
       <td><strong>{{ f.title }}</strong></td>
+      {% if tmdb_configured %}
+        <td>
+          {% if f.tmdb_matched %}
+            <span class="status-badge status-scraped">exact match</span>
+          {% else %}
+            <span class="status-badge status-pending">title only</span>
+          {% endif %}
+        </td>
+      {% endif %}
       <td>
         {% for a in f.appearances|sort(attribute='year', reverse=true) %}
           <span class="chip {{ 'status-scraped' if a.is_winner else 'status-pending' }}">
@@ -21,7 +45,7 @@
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="2" class="hint">Nothing here — either no nominations scraped yet, or you've watched everything.</td></tr>
+    <tr><td colspan="{{ 4 if tmdb_configured else 3 }}" class="hint">Nothing here — either no nominations scraped yet, or you've watched everything.</td></tr>
   {% endfor %}
   </tbody>
 </table>

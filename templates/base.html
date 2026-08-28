@@ -7,29 +7,46 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="{{ url_for('index') }}">🎬 Movie Awards Tracker</a>
-    <nav class="topnav">
-      <a href="{{ url_for('unwatched_page') }}">Not watched</a>
-      <a href="{{ url_for('watched_page') }}">Watched list</a>
-      <a href="{{ url_for('settings_page') }}">Settings</a>
+  <div class="app-shell">
+    <nav class="sidebar">
+      <a class="brand" href="{{ url_for('index') }}">🎬 Movie Awards<br>Tracker</a>
+      <a class="side-link {{ 'active' if request.endpoint in ('index','award_detail','ceremony_detail') else '' }}"
+         href="{{ url_for('index') }}">Awards</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'watched_page' else '' }}"
+         href="{{ url_for('watched_page') }}">Watched list</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'unwatched_page' else '' }}"
+         href="{{ url_for('unwatched_page') }}">To watch list</a>
     </nav>
-    <form class="search-form" action="{{ url_for('search') }}" method="get">
-      <input type="text" name="q" placeholder="Search a film…" value="{{ request.args.get('q','') }}">
-      <button type="submit">Search</button>
-    </form>
-  </header>
-  <main class="container">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flashes">
-          {% for category, message in messages %}
-            <div class="flash flash-{{ category }}">{{ message }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
-    {% block content %}{% endblock %}
-  </main>
+
+    <div class="main-area">
+      <header class="topbar">
+        <form class="search-form" action="{{ url_for('search') }}" method="get">
+          <input type="text" name="q" placeholder="Search a film…" value="{{ request.args.get('q','') }}">
+          <button type="submit">Search</button>
+        </form>
+        <details class="settings-menu">
+          <summary>⚙ Settings</summary>
+          <div class="settings-dropdown">
+            <a href="{{ url_for('settings_page') }}#imdb">IMDb import</a>
+            <a href="{{ url_for('settings_page') }}#plex">Plex connection</a>
+            <a href="{{ url_for('settings_page') }}#tmdb">TMDb / Radarr</a>
+          </div>
+        </details>
+      </header>
+
+      <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flashes">
+              {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
 </body>
 </html>

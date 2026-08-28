@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Search{% if q %}: "{{ q }}"{% endif %}</h1>
+
+{% if q %}
+  {% if results %}
+    <table class="list-table">
+      <thead><tr><th>Film</th><th>Nominee</th><th>Category</th><th>Award</th><th>Year</th><th></th></tr></thead>
+      <tbody>
+      {% for r in results %}
+        <tr class="{{ 'winner' if r.is_winner else '' }}">
+          <td>{{ r.film }}{% if r.is_winner %} 🏆{% endif %}</td>
+          <td>{{ r.nominee or '' }}</td>
+          <td>{{ r.category }}</td>
+          <td>{{ awards[r.award_code].name }}</td>
+          <td>{{ r.year }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="hint">No nominations found matching "{{ q }}".</p>
+  {% endif %}
+{% else %}
+  <p class="hint">Enter a film title above to search across all scraped awards.</p>
+{% endif %}
+{% endblock %}

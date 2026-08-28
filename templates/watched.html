@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Watched list</h1>
+<p class="hint">
+  From IMDb: go to <em>Your Ratings</em> (or any custom list), click the three-dot menu, then
+  <em>Export</em> — it downloads a CSV. Upload it here, or paste the CSV content or a plain
+  list of titles below.
+</p>
+<p class="hint">
+  <strong>Fully automatic option:</strong> drop the exported CSV into the <code>imdb-import/</code>
+  folder next to docker-compose.yml on your server — the app checks it every 5 minutes and
+  imports on its own, no need to come to this page at all.
+</p>
+<p class="hint">
+  This is meant as a one-time backfill. For ongoing tracking, connect Plex on the
+  <a href="{{ url_for('settings_page') }}">Settings</a> page — it has a real API, so newly
+  watched movies sync automatically from here on, without needing IMDb at all.
+</p>
+
+<form method="post" action="{{ url_for('watched_import') }}" enctype="multipart/form-data" class="manual-form">
+  <input type="file" name="csvfile" accept=".csv,text/csv">
+  <button type="submit">Import file</button>
+</form>
+
+<form method="post" action="{{ url_for('watched_import') }}" class="stack-form">
+  <textarea name="csv_text" rows="6" placeholder="...or paste CSV content, or one title per line"></textarea>
+  <button type="submit">Import pasted text</button>
+</form>
+
+<div class="page-header">
+  <h2>{{ watched|length }} watched film{{ 's' if watched|length != 1 else '' }}</h2>
+  {% if watched %}
+  <form method="post" action="{{ url_for('watched_clear') }}" onsubmit="return confirm('Clear your entire watched list?');">
+    <button type="submit">Clear all</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if watched %}
+<table class="list-table">
+  <thead><tr><th>Title</th><th>Year</th><th>Source</th><th></th></tr></thead>
+  <tbody>
+  {% for w in watched %}
+    <tr>
+      <td>{{ w.title }}</td>
+      <td>{{ w.year or '' }}</td>
+      <td><span class="status-badge status-{{ 'scraped' if w.source == 'plex' else 'manual' }}">{{ w.source }}</span></td>
+      <td>
+        <form method="post" action="{{ url_for('watched_delete', watched_id=w.id) }}">
+          <button type="submit" class="link-btn">remove</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="hint">Nothing imported yet.</p>
+{% endif %}
+{% endblock %}

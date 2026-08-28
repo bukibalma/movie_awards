@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local data — never commit your database or personal import files
+*.db
+imdb-import/*.csv
+imdb-import/processed/
+
+# OS/editor cruft
+.DS_Store
+.vscode/
+.idea/

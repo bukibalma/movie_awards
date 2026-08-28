@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="{{ url_for('award_detail', code=ceremony.award_code) }}">&larr; {{ award.name }}</a></p>
+<div class="page-header">
+  <h1>{{ award.name }} — {{ ceremony.year }}</h1>
+  <form method="post" action="{{ url_for('scrape_ceremony', ceremony_id=ceremony.id) }}">
+    <button type="submit">Check this ceremony now</button>
+  </form>
+</div>
+<p class="hint">
+  Status: <span class="status-badge status-{{ ceremony.status }}">{{ ceremony.status }}</span>
+  {% if ceremony.wiki_url %} · Source: <a href="{{ ceremony.wiki_url }}" target="_blank">{{ ceremony.wiki_title }}</a>{% endif %}
+  {% if ceremony.scraped_at %} · Last updated {{ ceremony.scraped_at }} UTC{% endif %}
+  {% if ceremony.status == 'pending' or ceremony.status == 'failed' %}
+    · This is checked automatically weekly; no action needed unless you want it sooner.
+  {% endif %}
+</p>
+
+{% if data %}
+  {% for entry in data %}
+  <section class="category-block">
+    <h3>{{ entry.category.name }}</h3>
+    <ul class="nominee-list">
+      {% for n in entry.nominations %}
+        <li class="{{ 'winner' if n.is_winner else '' }}">
+          {% if n.is_winner %}🏆{% endif %}
+          <strong>{{ n.film }}</strong>{% if n.nominee %} — {{ n.nominee }}{% endif %}
+          {% if n.watched %}<span class="watched-badge">✓ watched</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+{% else %}
+  <p class="hint">No data yet. Scrape it from Wikipedia, or add nominations manually below.</p>
+{% endif %}
+
+<h3>Add manually</h3>
+<form method="post" action="{{ url_for('add_manual', ceremony_id=ceremony.id) }}" class="manual-form">
+  <input type="text" name="category" placeholder="Category, e.g. Best Picture" required>
+  <input type="text" name="film" placeholder="Film title" required>
+  <input type="text" name="nominee" placeholder="Nominee/person (optional)">
+  <label><input type="checkbox" name="is_winner"> Winner</label>
+  <button type="submit">Add nomination</button>
+</form>
+{% endblock %}

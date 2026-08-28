@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Movie Awards Tracker{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">🎬 Movie Awards Tracker</a>
+    <nav class="topnav">
+      <a href="{{ url_for('unwatched_page') }}">Not watched</a>
+      <a href="{{ url_for('watched_page') }}">Watched list</a>
+      <a href="{{ url_for('settings_page') }}">Settings</a>
+    </nav>
+    <form class="search-form" action="{{ url_for('search') }}" method="get">
+      <input type="text" name="q" placeholder="Search a film…" value="{{ request.args.get('q','') }}">
+      <button type="submit">Search</button>
+    </form>
+  </header>
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

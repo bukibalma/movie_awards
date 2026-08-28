@@ -1,0 +1,6 @@
+.git
+__pycache__
+*.pyc
+*.db
+imdb-import
+README.md

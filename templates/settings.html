@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Settings</h1>
+
+<section class="category-block">
+  <h3>Plex — automatic watched sync</h3>
+  <p class="hint">
+    Connect your Plex server and any movie marked watched there gets added to your watched list
+    automatically, checked every 15 minutes. No manual export needed for this going forward —
+    unlike IMDb, Plex has a real API for this.
+  </p>
+  <p class="hint">
+    Find your server URL (e.g. <code>http://192.168.1.10:32400</code>) and token: Plex web app →
+    open any item → ⋯ → Get Info → View XML, and copy the <code>X-Plex-Token</code> value from
+    the URL bar.
+  </p>
+
+  {% if plex_configured %}
+    <p class="hint">
+      Status: <span class="status-badge status-scraped">connected</span>
+      {% if plex_last_synced and plex_last_synced != '0' %}
+        · last synced up to {{ plex_last_synced }} (unix time)
+      {% else %}
+        · not synced yet
+      {% endif %}
+    </p>
+    <form method="post" action="{{ url_for('settings_plex_sync_now') }}">
+      <button type="submit">Sync now</button>
+    </form>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('settings_plex_save') }}" class="manual-form">
+    <input type="text" name="plex_base_url" placeholder="http://192.168.1.10:32400" value="{{ plex_base_url }}" required>
+    <input type="text" name="plex_token" placeholder="Plex token" required>
+    <button type="submit">Save & connect</button>
+  </form>
+</section>
+{% endblock %}

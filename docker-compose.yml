@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - awards_data:/data
+      - ./imdb-import:/import
+    restart: unless-stopped
+
+volumes:
+  awards_data:

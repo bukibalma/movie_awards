@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Awards</h1>
+  <form method="post" action="{{ url_for('force_update') }}">
+    <button type="submit">Check for updates now</button>
+  </form>
+</div>
+<p class="hint">
+  Tracking {{ default_years[0] }}–{{ default_years[-1] }} automatically. A background job checks
+  Wikipedia weekly, adds new ceremony years as they come up, and re-checks recent/upcoming
+  ceremonies to pick up nominees and winners as they're announced — no manual scraping needed.
+  Use "Check for updates now" if you don't want to wait for the next cycle.
+</p>
+
+<div class="award-grid">
+  {% for code, cfg in awards.items() %}
+  <div class="award-card">
+    <h2><a href="{{ url_for('award_detail', code=code) }}">{{ cfg.name }}</a></h2>
+    <div class="ceremony-chips">
+      {% for c in by_award.get(code, [])|sort(attribute='year', reverse=true) %}
+        <a class="chip status-{{ c.status }}" href="{{ url_for('ceremony_detail', ceremony_id=c.id) }}">
+          {{ c.year }}
+        </a>
+      {% else %}
+        <span class="hint">No ceremonies yet</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

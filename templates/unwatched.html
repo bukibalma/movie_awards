@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Not yet watched</h1>
+<p class="hint">
+  {{ films|length }} of {{ total }} nominated films aren't on your watched list.
+  Matching is by title, so double-check anything that looks like it should be crossed off already.
+</p>
+
+<table class="list-table">
+  <thead><tr><th>Film</th><th>Nominated for</th></tr></thead>
+  <tbody>
+  {% for f in films %}
+    <tr>
+      <td><strong>{{ f.title }}</strong></td>
+      <td>
+        {% for a in f.appearances|sort(attribute='year', reverse=true) %}
+          <span class="chip {{ 'status-scraped' if a.is_winner else 'status-pending' }}">
+            {{ awards[a.award_code].name }} {{ a.year }} — {{ a.category }}{% if a.is_winner %} 🏆{% endif %}
+          </span>
+        {% endfor %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="2" class="hint">Nothing here — either no nominations scraped yet, or you've watched everything.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

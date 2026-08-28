@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="{{ url_for('index') }}">&larr; All awards</a></p>
+<h1>{{ award.name }}</h1>
+
+<table class="list-table">
+  <thead><tr><th>Year</th><th>Status</th><th>Source</th></tr></thead>
+  <tbody>
+  {% for c in ceremonies|sort(attribute='year', reverse=true) %}
+    <tr>
+      <td><a href="{{ url_for('ceremony_detail', ceremony_id=c.id) }}">{{ c.year }}</a></td>
+      <td><span class="status-badge status-{{ c.status }}">{{ c.status }}</span></td>
+      <td>{% if c.wiki_url %}<a href="{{ c.wiki_url }}" target="_blank">Wikipedia</a>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="3" class="hint">No ceremonies added yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Add a year</h3>
+<form method="post" action="{{ url_for('add_year') }}" class="inline-form">
+  <input type="hidden" name="award_code" value="{{ code }}">
+  <input type="number" name="year" placeholder="e.g. 2027" required>
+  <button type="submit">Add</button>
+</form>
+{% endblock %}

@@ -1,0 +1,58 @@
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #0f1115;
+  color: #e7e7ea;
+  margin: 0;
+}
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 32px; background: #171a21; border-bottom: 1px solid #2a2e38;
+}
+.brand { color: #f2c94c; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
+.search-form input { padding: 8px; border-radius: 6px; border: 1px solid #2a2e38; background: #0f1115; color: #e7e7ea; }
+.search-form button, form button {
+  padding: 8px 14px; border-radius: 6px; border: none; background: #f2c94c; color: #171a21;
+  font-weight: 600; cursor: pointer;
+}
+.container { max-width: 1000px; margin: 0 auto; padding: 24px 32px 80px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;}
+a { color: #7db8ff; }
+.hint { color: #9aa0ab; font-size: 0.9rem; }
+.award-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
+.award-card { background: #171a21; border: 1px solid #2a2e38; border-radius: 10px; padding: 16px; }
+.award-card h2 { font-size: 1.05rem; margin: 0 0 10px; }
+.ceremony-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 10px; border-radius: 999px; font-size: 0.85rem; text-decoration: none; border: 1px solid #2a2e38; }
+.status-pending { background: #23262e; color: #9aa0ab; }
+.status-scraped { background: #1e3a2b; color: #6fdd9a; }
+.status-manual { background: #2b3320; color: #c7e26a; }
+.status-failed { background: #3a1e1e; color: #e28080; }
+.status-badge { padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; }
+.list-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.list-table th, .list-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a2e38; }
+.category-block { margin: 22px 0; padding: 14px 18px; background: #171a21; border: 1px solid #2a2e38; border-radius: 10px; }
+.category-block h3 { margin-top: 0; color: #f2c94c; }
+.nominee-list { list-style: none; padding: 0; margin: 0; }
+.nominee-list li { padding: 4px 0; border-bottom: 1px solid #20232b; }
+.nominee-list li.winner { color: #f2c94c; }
+.inline-form, .manual-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+.inline-form input, .manual-form input {
+  padding: 8px; border-radius: 6px; border: 1px solid #2a2e38; background: #0f1115; color: #e7e7ea;
+}
+.flashes { margin-bottom: 16px; }
+.flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; }
+.flash-success { background: #1e3a2b; color: #6fdd9a; }
+.flash-warning { background: #3a331e; color: #e2c980; }
+.flash-error { background: #3a1e1e; color: #e28080; }
+tr.winner td { color: #f2c94c; }
+.topnav { display: flex; gap: 16px; }
+.topnav a { color: #c9ccd3; text-decoration: none; font-size: 0.95rem; }
+.topnav a:hover { color: #f2c94c; }
+.stack-form { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 10px; }
+.stack-form textarea {
+  width: 100%; max-width: 500px; padding: 8px; border-radius: 6px; border: 1px solid #2a2e38;
+  background: #0f1115; color: #e7e7ea; font-family: inherit;
+}
+.link-btn { background: none; border: none; color: #e28080; padding: 0; font-size: 0.85rem; cursor: pointer; }
+.watched-badge { margin-left: 8px; font-size: 0.8rem; color: #6fdd9a; }

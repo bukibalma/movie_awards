@@ -49,6 +49,20 @@ def force_update():
     return redirect(url_for("index"))
 
 
+@app.route("/rescrape-all", methods=["POST"])
+def rescrape_all():
+    """
+    Heavier one-time action: re-scrapes every ceremony regardless of status
+    or age, so a parser/data-source fix reaches ceremonies the normal
+    weekly cycle would otherwise leave alone (it only touches ceremonies
+    that are unscraped or within a year of today).
+    """
+    threading.Thread(target=scheduler.rescrape_all, daemon=True).start()
+    flash("Full re-scrape started in the background — this touches every ceremony, "
+          "so it'll take a while. Check back in 10-15 minutes.", "success")
+    return redirect(url_for("index"))
+
+
 @app.route("/award/<code>")
 def award_detail(code):
     if code not in AWARDS:
@@ -65,12 +79,16 @@ def ceremony_detail(ceremony_id):
     award = AWARDS[ceremony["award_code"]]
     data = db.get_categories_with_nominations(ceremony_id)
     watched = db.watched_normalized_titles()
+    manual_flags = db.list_radarr_manual_titles()
     for entry in data:
         for n in entry["nominations"]:
             norm = normalize_title(n["film"])
+            n["title"] = n["film"]
+            n["normalized_title"] = norm
             n["watched"] = norm in watched
             n["poster"] = films.poster_url(norm)
             n["tmdb_id"] = films.tmdb_id_for(norm)
+            n["radarr_manual"] = norm in manual_flags
     return render_template("ceremony.html", ceremony=ceremony, award=award, data=data)
 
 
@@ -136,7 +154,20 @@ def add_manual(ceremony_id):
 def search():
     q = request.args.get("q", "").strip()
     results = db.search_nominations(q) if q else []
-    return render_template("search.html", q=q, results=results, awards=AWARDS)
+
+    seen = {}
+    watched = db.watched_normalized_titles()
+    manual_flags = db.list_radarr_manual_titles()
+    for r in results:
+        norm = normalize_title(r["film"])
+        if norm not in seen:
+            seen[norm] = {
+                "title": r["film"], "normalized_title": norm,
+                "tmdb_id": films.tmdb_id_for(norm), "poster": films.poster_url(norm),
+                "watched": norm in watched, "radarr_manual": norm in manual_flags,
+            }
+    film_list = sorted(seen.values(), key=lambda f: f["title"].lower())
+    return render_template("search.html", q=q, films=film_list)
 
 
 @app.route("/unwatched")
@@ -146,22 +177,38 @@ def unwatched_page():
     manual_flags = db.list_radarr_manual_titles()
     film_list = []
     for norm, g in unwatched.items():
-        match = db.get_tmdb_match(norm)
-        g["tmdb_matched"] = bool(match and match.get("tmdb_id"))
         g["tmdb_id"] = films.tmdb_id_for(norm)
         g["poster"] = films.poster_url(norm)
         g["is_short"] = films.is_short_film(norm)
         g["radarr_manual"] = norm in manual_flags
         g["normalized_title"] = norm
+        g["watched"] = False  # this page is unwatched-only, by definition
         film_list.append(g)
     film_list.sort(key=lambda g: g["title"].lower())
 
-    tmdb_configured = bool(db.get_setting("tmdb_api_key"))
     return render_template(
         "unwatched.html", films=film_list, total=len(groups), awards=AWARDS,
-        radarr_url=url_for("radarr_export", _external=True),
+    )
+
+
+@app.route("/manual-list")
+def manual_list_page():
+    manual_titles = db.list_radarr_manual_titles()
+    watched = db.watched_normalized_titles()
+    film_list = []
+    for norm in manual_titles:
+        film_list.append({
+            "title": films.display_title_for(norm),
+            "normalized_title": norm,
+            "tmdb_id": films.tmdb_id_for(norm),
+            "poster": films.poster_url(norm),
+            "watched": norm in watched,
+            "radarr_manual": True,
+        })
+    film_list.sort(key=lambda f: f["title"].lower())
+    return render_template(
+        "manual_list.html", films=film_list,
         radarr_manual_url=url_for("radarr_export_manual", _external=True),
-        tmdb_configured=tmdb_configured,
     )
 
 
@@ -172,6 +219,15 @@ def toggle_radarr_manual():
     if norm:
         db.set_radarr_manual(norm, value)
     return redirect(request.referrer or url_for("unwatched_page"))
+
+
+@app.route("/film/remove-watched", methods=["POST"])
+def remove_watched_by_title():
+    norm = request.form.get("normalized_title", "")
+    if norm:
+        db.delete_watched_by_normalized_title(norm)
+        flash("Removed from watched list.", "success")
+    return redirect(request.referrer or url_for("watched_page"))
 
 
 @app.route("/film/<int:tmdb_id>")
@@ -364,10 +420,14 @@ def settings_omdb_save():
 @app.route("/watched")
 def watched_page():
     watched = db.list_watched()
+    manual_flags = db.list_radarr_manual_titles()
     for w in watched:
         norm = normalize_title(w["title"])
+        w["normalized_title"] = norm
         w["poster"] = films.poster_url(norm)
         w["tmdb_id"] = films.tmdb_id_for(norm)
+        w["watched"] = True
+        w["radarr_manual"] = norm in manual_flags
     return render_template("watched.html", watched=watched)
 
 

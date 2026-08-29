@@ -15,7 +15,13 @@
     {% endif %}
 
     {% if watched %}
-      <p><span class="watched-tick">✓</span> On your watched list</p>
+      <div class="checkbox-row">
+        <p style="margin:0;"><span class="watched-tick">✓</span> On your watched list</p>
+        <form method="post" action="{{ url_for('remove_watched_by_title') }}">
+          <input type="hidden" name="normalized_title" value="{{ match.normalized_title }}">
+          <button type="submit" class="link-btn">remove from watched</button>
+        </form>
+      </div>
     {% endif %}
 
     {% if match.overview %}
@@ -45,7 +51,7 @@
       <input type="hidden" name="value" value="{{ '0' if radarr_manual else '1' }}">
       <label>
         <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if radarr_manual else '' }}>
-        Include in manual Radarr list
+        Add to Manual list
       </label>
     </form>
   </div>

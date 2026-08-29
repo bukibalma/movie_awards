@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_poster_tile.html" as tiles %}
 {% block content %}
 <p><a href="{{ url_for('award_detail', code=ceremony.award_code) }}">&larr; {{ award.name }}</a></p>
 <div class="page-header">
@@ -20,27 +21,11 @@
   {% for entry in data %}
   <section class="category-block">
     <h3>{{ entry.category.name }}</h3>
-    <ul class="nominee-list">
+    <div class="poster-grid">
       {% for n in entry.nominations %}
-        <li class="{{ 'winner' if n.is_winner else '' }}">
-          {% if n.tmdb_id %}<a class="poster-link" href="{{ url_for('film_detail', tmdb_id=n.tmdb_id) }}">{% endif %}
-          {% if n.poster %}
-            <img class="poster-thumb" src="{{ n.poster }}" alt="">
-          {% else %}
-            <span class="poster-thumb placeholder">🎬</span>
-          {% endif %}
-          {% if n.tmdb_id %}</a>{% endif %}
-          {% if n.is_winner %}🏆{% endif %}
-          {% if n.tmdb_id %}
-            <a href="{{ url_for('film_detail', tmdb_id=n.tmdb_id) }}"><strong>{{ n.film }}</strong></a>
-          {% else %}
-            <strong>{{ n.film }}</strong>
-          {% endif %}
-          {% if n.nominee %} — {{ n.nominee }}{% endif %}
-          {% if n.watched %}<span class="watched-tick" title="Watched">✓</span>{% endif %}
-        </li>
+        {{ tiles.poster_tile(n) }}
       {% endfor %}
-    </ul>
+    </div>
   </section>
   {% endfor %}
 {% else %}

@@ -15,7 +15,9 @@
       <a class="side-link {{ 'active' if request.endpoint == 'watched_page' else '' }}"
          href="{{ url_for('watched_page') }}">Watched list</a>
       <a class="side-link {{ 'active' if request.endpoint == 'unwatched_page' else '' }}"
-         href="{{ url_for('unwatched_page') }}">To watch list</a>
+         href="{{ url_for('unwatched_page') }}">Automatic list</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'manual_list_page' else '' }}"
+         href="{{ url_for('manual_list_page') }}">Manual list</a>
     </nav>
 
     <div class="main-area">
@@ -31,6 +33,7 @@
             <a href="{{ url_for('settings_page') }}#plex">Plex connection</a>
             <a href="{{ url_for('settings_page') }}#tmdb">TMDb / Radarr</a>
             <a href="{{ url_for('settings_page') }}#omdb">Ratings (OMDb)</a>
+            <a href="{{ url_for('settings_page') }}#sync">Data sync</a>
           </div>
         </details>
       </header>

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "_poster_tile.html" as tiles %}
+{% block content %}
+<h1>Manual list</h1>
+<p class="hint">
+  Only films you've explicitly added, via the 🔖 icon on any poster or the checkbox on a film's
+  own page. This feeds a separate Radarr export that ignores watched status and short-film
+  filtering entirely — see <a href="{{ url_for('settings_page') }}#tmdb">Settings</a>.
+</p>
+
+<div class="poster-grid">
+  {% for f in films %}
+    {{ tiles.poster_tile(f) }}
+  {% else %}
+    <p class="hint">Nothing added yet — click the 🔖 icon on any poster to add it here.</p>
+  {% endfor %}
+</div>
+{% endblock %}

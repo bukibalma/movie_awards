@@ -1,71 +1,18 @@
 {% extends "base.html" %}
+{% import "_poster_tile.html" as tiles %}
 {% block content %}
-<h1>To watch list</h1>
+<h1>Automatic list</h1>
 <p class="hint">
-  {{ films|length }} of {{ total }} nominated films aren't on your watched list.
-  Matching is by title, so double-check anything that looks like it should be crossed off already.
-</p>
-<p class="hint">
-  Two Radarr feeds are available in <a href="{{ url_for('settings_page') }}#tmdb">Settings → TMDb / Radarr</a>:
-  a fully automatic one (everything below, excluding short films) and a manual one (only films you tick
-  "Add to Radarr" for, below or on a film's own page).
+  {{ films|length }} of {{ total }} nominated films aren't on your watched list. Matching is by
+  title, so double-check anything that looks like it should be crossed off already. This list
+  feeds the automatic Radarr export — see <a href="{{ url_for('settings_page') }}#tmdb">Settings</a>.
 </p>
 
-<table class="list-table">
-  <thead>
-    <tr>
-      <th></th><th>Film</th>{% if tmdb_configured %}<th>Radarr match</th>{% endif %}<th>Nominated for</th><th>Add to Radarr</th>
-    </tr>
-  </thead>
-  <tbody>
+<div class="poster-grid">
   {% for f in films %}
-    <tr>
-      <td>
-        {% if f.tmdb_id %}<a class="poster-link" href="{{ url_for('film_detail', tmdb_id=f.tmdb_id) }}">{% endif %}
-        {% if f.poster %}
-          <img class="poster-thumb" src="{{ f.poster }}" alt="">
-        {% else %}
-          <span class="poster-thumb placeholder">🎬</span>
-        {% endif %}
-        {% if f.tmdb_id %}</a>{% endif %}
-      </td>
-      <td>
-        {% if f.tmdb_id %}
-          <a href="{{ url_for('film_detail', tmdb_id=f.tmdb_id) }}"><strong>{{ f.title }}</strong></a>
-        {% else %}
-          <strong>{{ f.title }}</strong>
-        {% endif %}
-        {% if f.is_short %}<span class="short-badge">short film — excluded from auto list</span>{% endif %}
-      </td>
-      {% if tmdb_configured %}
-        <td>
-          {% if f.tmdb_matched %}
-            <span class="status-badge status-scraped">exact match</span>
-          {% else %}
-            <span class="status-badge status-pending">title only</span>
-          {% endif %}
-        </td>
-      {% endif %}
-      <td>
-        {% for a in f.appearances|sort(attribute='year', reverse=true) %}
-          <span class="chip {{ 'status-scraped' if a.is_winner else 'status-pending' }}">
-            {{ awards[a.award_code].name }} {{ a.year }} — {{ a.category }}{% if a.is_winner %} 🏆{% endif %}
-          </span>
-        {% endfor %}
-      </td>
-      <td>
-        <form method="post" action="{{ url_for('toggle_radarr_manual') }}">
-          <input type="hidden" name="normalized_title" value="{{ f.normalized_title }}">
-          <input type="hidden" name="value" value="{{ '0' if f.radarr_manual else '1' }}">
-          <label>
-            <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if f.radarr_manual else '' }}>
-          </label>
-        </form>
-      </td>
-    </tr>
+    {{ tiles.poster_tile(f) }}
   {% else %}
-    <tr><td colspan="5" class="hint">Nothing here — either no nominations scraped yet, or you've watched everything.</td></tr>
+    <p class="hint">Nothing here — either no nominations scraped yet, or you've watched everything.</p>
   {% endfor %}
-  </tbody>
-</table>
+</div>
 {% endblock %}

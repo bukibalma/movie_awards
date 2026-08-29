@@ -156,13 +156,22 @@ personal use, just worth knowing.
 
 ## Interface
 
-- **Left sidebar**: Awards, Watched list, To watch list.
-- **Top-right ⚙ Settings dropdown**: jumps to the IMDb import, Plex, and
-  TMDb/Radarr sections — all consolidated on one Settings page.
-- **Posters**: once TMDb is connected (see below), posters show on the
-  Awards ceremony pages, Watched list, and To-watch list.
-- **Watched ticks**: on ceremony pages, any nominee already on your
-  watched list shows a ✓.
+- **Left sidebar**: Awards, Watched list, Automatic list, Manual list.
+- **Top-right ⚙ Settings dropdown**: jumps to IMDb import, Plex, TMDb/Radarr,
+  OMDb ratings, and Data sync — all on one Settings page.
+- **Posters, Plex-style**: every movie list (ceremonies, Watched, Automatic,
+  Manual, Search) is a poster grid — big poster, title below, no other text.
+  A poster carries up to three badges: 🏆 top-left (winner, ceremony pages
+  only), ✓ top-right (watched), 🔖 bottom-left (click to add/remove from the
+  Manual list — its filled/outline state also shows whether it's already on
+  that list). Click a poster or title to open the film's own page.
+- **Automatic list** — every unwatched nominated film, excluding confirmed
+  short films. This is what feeds the automatic Radarr export.
+- **Manual list** — only films you've explicitly added via the 🔖 icon or
+  the checkbox on a film's page. Feeds a separate Radarr export that
+  ignores watched status and the short-film filter entirely.
+- **Movie detail page** is also where you remove a film from your watched
+  list, if needed — that control deliberately doesn't appear on any grid.
 
 ## Radarr integration — two feeds
 
@@ -186,21 +195,38 @@ occasionally pick the wrong film for an ambiguous or very common title.
 With a TMDb key, a background job resolves every film to an exact TMDb
 ID, and the feeds send that ID directly instead.
 
-## Data source: Wikidata first, Wikipedia as fallback
+## Data source: Wikidata for awards, Wikipedia for festivals
 
-Nominations are now pulled primarily from **Wikidata's structured data**
-rather than parsed out of Wikipedia's prose tables. Wikidata models award
+Award-show ceremonies (Oscars, Golden Globes, BAFTA, César, Independent
+Spirit, Critics' Choice) pull primarily from **Wikidata's structured
+data** rather than Wikipedia's prose tables. Wikidata models award
 nominations cleanly — a film (or a person, with a "for work" link back to
 the film) carries a direct "nominated for"/"award received" statement,
-qualified with exactly which ceremony it was for. One structured query
-per ceremony replaces all of the HTML-parsing heuristics.
+qualified with exactly which ceremony it was for. Falls back to scraping
+the Wikipedia page if Wikidata has nothing for a given ceremony yet.
 
-If Wikidata has no data yet for a given ceremony (coverage is excellent
-for major awards, thinner for smaller festivals or very recent
-ceremonies), the app automatically falls back to scraping the Wikipedia
-page instead — same as before. This happens per-ceremony and requires no
-configuration; a ceremony's "Source" link on its page shows whichever it
+**Festivals (Cannes, Berlinale, Venice, Sundance) always use the
+Wikipedia scraper, skipping Wikidata entirely.** These don't really have
+a "nominees" concept the way Oscars-style awards do — a jury picks a
+winner directly from the whole competition lineup, with no public
+shortlist announced beforehand. Wikidata mostly only records the winner
+("award received") for these, never a nominee list, because there
+usually isn't one to record. Wikipedia's "Official Selection" table (the
+full competition lineup) is the better source here.
+
+A ceremony's "Source" link on its page shows whichever source it
 actually used.
+
+### Retroactively applying a fix to older ceremonies
+
+The weekly auto-update cycle deliberately only touches ceremonies that
+are unscraped or within a year of today, to avoid pointless requests
+against older, already-scraped ceremonies. That means a parser or
+data-source improvement doesn't reach older ceremonies on its own —
+**"Re-scrape everything"** on the home page does a one-time full pass
+over every ceremony regardless of status or age. It's slower (10-15
+minutes for the full set), so it's meant to be run occasionally after an
+update, not routinely.
 
 ## Movie detail pages & ratings
 

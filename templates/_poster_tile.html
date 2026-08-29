@@ -1,0 +1,35 @@
+{% macro poster_tile(item) %}
+<div class="poster-tile">
+  <div class="poster-frame">
+    {% if item.tmdb_id %}<a href="{{ url_for('film_detail', tmdb_id=item.tmdb_id) }}">{% endif %}
+      {% if item.poster %}
+        <img class="poster-img" src="{{ item.poster }}" alt="">
+      {% else %}
+        <span class="poster-placeholder">🎬</span>
+      {% endif %}
+    {% if item.tmdb_id %}</a>{% endif %}
+
+    {% if item.is_winner %}
+      <span class="tile-badge tile-badge-winner" title="Winner">🏆</span>
+    {% endif %}
+    {% if item.watched %}
+      <span class="tile-badge tile-badge-watched" title="Watched">✓</span>
+    {% endif %}
+    {% if item.normalized_title %}
+      <form method="post" action="{{ url_for('toggle_radarr_manual') }}" class="tile-manual-form">
+        <input type="hidden" name="normalized_title" value="{{ item.normalized_title }}">
+        <input type="hidden" name="value" value="{{ '0' if item.radarr_manual else '1' }}">
+        <button type="submit" class="tile-badge tile-badge-manual {{ 'active' if item.radarr_manual else '' }}"
+                title="{{ 'Remove from manual list' if item.radarr_manual else 'Add to manual list' }}">🔖</button>
+      </form>
+    {% endif %}
+  </div>
+  <div class="tile-title">
+    {% if item.tmdb_id %}
+      <a href="{{ url_for('film_detail', tmdb_id=item.tmdb_id) }}">{{ item.title }}</a>
+    {% else %}
+      {{ item.title }}
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}

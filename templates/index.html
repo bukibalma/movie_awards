@@ -8,9 +8,17 @@
 </div>
 <p class="hint">
   Tracking {{ default_years[0] }}–{{ default_years[-1] }} automatically. A background job checks
-  Wikipedia weekly, adds new ceremony years as they come up, and re-checks recent/upcoming
-  ceremonies to pick up nominees and winners as they're announced — no manual scraping needed.
-  Use "Check for updates now" if you don't want to wait for the next cycle.
+  weekly, adds new ceremony years as they come up, and re-checks recent/upcoming ceremonies to
+  pick up nominees and winners as they're announced — no manual scraping needed. "Check for
+  updates now" runs that same cycle immediately; it only touches ceremonies that are unscraped
+  or from the last/next year, same as the automatic version.
+</p>
+<p class="hint">
+  <form method="post" action="{{ url_for('rescrape_all') }}" style="display:inline;" onsubmit="return confirm('This re-scrapes every ceremony from scratch, including older ones already marked done. It can take 10-15 minutes. Continue?');">
+    <button type="submit">Re-scrape everything (slow, one-time)</button>
+  </form>
+  Use this once after an app update that improves how data is parsed — it's the only way older,
+  already-scraped ceremonies pick up the fix, since the regular cycle above leaves them alone.
 </p>
 
 <div class="award-grid">

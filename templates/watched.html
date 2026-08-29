@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_poster_tile.html" as tiles %}
 {% block content %}
 <div class="page-header">
   <h1>Watched list</h1>
@@ -15,34 +16,11 @@
 </p>
 
 {% if watched %}
-<table class="list-table">
-  <thead><tr><th></th><th>Title</th><th>Year</th><th>Source</th><th></th></tr></thead>
-  <tbody>
+<div class="poster-grid">
   {% for w in watched %}
-    <tr>
-      <td>
-        {% if w.tmdb_id %}<a class="poster-link" href="{{ url_for('film_detail', tmdb_id=w.tmdb_id) }}">{% endif %}
-        {% if w.poster %}
-          <img class="poster-thumb" src="{{ w.poster }}" alt="">
-        {% else %}
-          <span class="poster-thumb placeholder">🎬</span>
-        {% endif %}
-        {% if w.tmdb_id %}</a>{% endif %}
-      </td>
-      <td>
-        {% if w.tmdb_id %}<a href="{{ url_for('film_detail', tmdb_id=w.tmdb_id) }}">{{ w.title }}</a>{% else %}{{ w.title }}{% endif %}
-      </td>
-      <td>{{ w.year or '' }}</td>
-      <td><span class="status-badge status-{{ 'scraped' if w.source == 'plex' else 'manual' }}">{{ w.source }}</span></td>
-      <td>
-        <form method="post" action="{{ url_for('watched_delete', watched_id=w.id) }}">
-          <button type="submit" class="link-btn">remove</button>
-        </form>
-      </td>
-    </tr>
+    {{ tiles.poster_tile(w) }}
   {% endfor %}
-  </tbody>
-</table>
+</div>
 {% else %}
 <p class="hint">Nothing imported yet.</p>
 {% endif %}

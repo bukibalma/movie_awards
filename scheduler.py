@@ -93,15 +93,26 @@ def scrape_one(ceremony):
     award = AWARDS[ceremony["award_code"]]
     guess = guess_title(ceremony["award_code"], ceremony["year"])
 
-    categories, wiki_title = _try_wikidata(ceremony["award_code"], ceremony["year"], guess)
+    # Festivals (Cannes, Berlinale, Venice, Sundance) don't really have a
+    # "nominees" concept the way Oscars-style awards do — a jury picks a
+    # winner directly from the whole competition lineup, with no public
+    # shortlist announced beforehand. Wikidata mostly only records the
+    # winner ("award received") for these, never a nominee list, because
+    # there usually isn't one to record. Wikipedia's "Official Selection"
+    # table — the full competition lineup — is the better source for what
+    # the person actually wants here, so skip Wikidata entirely for
+    # festivals and go straight to the Wikipedia scraper.
+    categories, wiki_title = (None, guess) if award.get("festival") else \
+        _try_wikidata(ceremony["award_code"], ceremony["year"], guess)
+
     if categories:
         wiki_url = scraper.WIKI_BASE + wiki_title.replace(" ", "_")
         _store_categories(ceremony["id"], categories, wiki_title, wiki_url)
         log.info("Scraped %s %s from Wikidata: %d categories", award["name"], ceremony["year"], len(categories))
         return
 
-    # Wikidata had nothing (item not found, or no nomination statements
-    # yet) — fall back to the existing Wikipedia HTML scraper.
+    # Wikidata had nothing (item not found, no nomination statements yet,
+    # or skipped entirely for a festival) — use the Wikipedia HTML scraper.
     try:
         html, title = scraper.resolve_page(ceremony["award_code"], ceremony["year"], award["name"])
         wiki_url = scraper.WIKI_BASE + title.replace(" ", "_")
@@ -138,6 +149,29 @@ def run_cycle():
             scrape_one(ceremony)
             time.sleep(REQUEST_DELAY_SECONDS)
         log.info("Auto-update cycle finished")
+    finally:
+        _cycle_lock.release()
+
+
+def rescrape_all():
+    """
+    Manual, heavier operation: re-scrapes every non-manual ceremony
+    regardless of its current status or how old it is. The normal weekly
+    cycle deliberately skips already-'scraped' ceremonies outside the
+    recent-year window (to avoid needless requests), which means a parser
+    or data-source improvement never reaches older ceremonies on its own.
+    This is how to retroactively apply such a fix to everything at once.
+    """
+    if not _cycle_lock.acquire(blocking=False):
+        log.info("A scrape cycle is already running — try again shortly")
+        return
+    try:
+        ceremonies = [c for c in db.list_ceremonies() if c["status"] != "manual"]
+        log.info("Full re-scrape starting: %d ceremonies", len(ceremonies))
+        for ceremony in ceremonies:
+            scrape_one(ceremony)
+            time.sleep(REQUEST_DELAY_SECONDS)
+        log.info("Full re-scrape finished")
     finally:
         _cycle_lock.release()
 

@@ -99,9 +99,9 @@
   </p>
   <p class="hint"><code>{{ radarr_url }}</code></p>
   <p class="hint">
-    <strong>Manual</strong> — only films you've explicitly checked "Add to Radarr" for, on the
-    To-watch list or a film's own page. Ignores watched status and the short-film filter — the
-    checkbox is treated as your explicit choice:
+    <strong>Manual</strong> — only films you've added via the 🔖 icon on any poster or the
+    checkbox on a film's own page. Ignores watched status and the short-film filter — adding a
+    film here is treated as your explicit choice:
   </p>
   <p class="hint"><code>{{ radarr_manual_url }}</code></p>
   <p class="hint">
@@ -127,6 +127,28 @@
   <form method="post" action="{{ url_for('settings_omdb_save') }}" class="manual-form">
     <input type="text" name="omdb_api_key" placeholder="OMDb API key" required>
     <button type="submit">Save & connect</button>
+  </form>
+</section>
+
+<section class="category-block" id="sync">
+  <h3>Data sync</h3>
+  <p class="hint">
+    A background job checks weekly (plus once at container startup) and only touches ceremonies
+    that are unscraped/failed, or from the last/next year — it deliberately leaves older,
+    already-scraped ceremonies alone to avoid pointless repeated requests.
+  </p>
+  <p class="hint">
+    <strong>Check for updates now</strong> (home page) runs that same weekly logic immediately,
+    with the same rules — it won't touch old ceremonies either.
+  </p>
+  <p class="hint">
+    <strong>Force a full re-scrape</strong> below ignores all of that and re-fetches every
+    ceremony from scratch, including old ones already marked done. This is the only way an app
+    update that changes how data is parsed reaches ceremonies scraped before the update. It's
+    slower (10-15 minutes for the full set), so it's meant to be run occasionally, not routinely.
+  </p>
+  <form method="post" action="{{ url_for('rescrape_all') }}" onsubmit="return confirm('This re-scrapes every ceremony from scratch. It can take 10-15 minutes. Continue?');">
+    <button type="submit">Force full re-scrape now</button>
   </form>
 </section>
 {% endblock %}

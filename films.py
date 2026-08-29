@@ -46,6 +46,26 @@ def poster_url(normalized_title, size="w342"):
     return tmdb_client.poster_url(match["poster_path"], size=size) if match else None
 
 
+def display_title_for(normalized_title):
+    """
+    Best available human-readable title for a normalized key, checking
+    nominated films first, then the watched list (for titles that only
+    exist there, e.g. a film added to the manual list from the Watched
+    page that never appeared in any award nomination), then a resolved
+    TMDb match, falling back to the normalized key itself as a last resort.
+    """
+    groups = group_nominated_films()
+    if normalized_title in groups:
+        return groups[normalized_title]["title"]
+    for w in db.list_watched():
+        if normalize_title(w["title"]) == normalized_title:
+            return w["title"]
+    match = db.get_tmdb_match(normalized_title)
+    if match and match.get("matched_title"):
+        return match["matched_title"]
+    return normalized_title.title()
+
+
 def tmdb_id_for(normalized_title):
     match = db.get_tmdb_match(normalized_title)
     return match["tmdb_id"] if match and match.get("tmdb_id") else None

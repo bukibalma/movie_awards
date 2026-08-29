@@ -124,3 +124,36 @@ tr.winner td { color: #f2c94c; }
 .rating-box .value { font-size: 1.3rem; font-weight: 700; color: #f2c94c; }
 .rating-box .label { font-size: 0.75rem; color: #9aa0ab; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+
+/* ---- Plex-style poster grid ---- */
+.poster-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 22px; margin-top: 16px;
+}
+.poster-tile { text-align: center; }
+.poster-frame {
+  position: relative; aspect-ratio: 2 / 3; border-radius: 10px; overflow: hidden;
+  background: #23262e; border: 1px solid #2a2e38;
+}
+.poster-frame .poster-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.poster-frame .poster-placeholder {
+  display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+  font-size: 2.5rem; color: #4a4f5c;
+}
+.tile-badge {
+  position: absolute; width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+  background: rgba(15, 17, 21, 0.85);
+}
+.tile-badge-watched { top: 6px; right: 6px; color: #6fdd9a; border: 1px solid #6fdd9a; }
+.tile-badge-winner { top: 6px; left: 6px; border: 1px solid #f2c94c; }
+.tile-manual-form { position: absolute; bottom: 6px; left: 6px; margin: 0; }
+.tile-badge-manual { border: 1px solid #2a2e38; color: #9aa0ab; cursor: pointer; padding: 0; }
+.tile-badge-manual.active { background: #f2c94c; color: #171a21; border-color: #f2c94c; }
+.tile-title {
+  margin-top: 8px; font-size: 0.85rem; color: #e7e7ea;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tile-title a { color: inherit; text-decoration: none; }
+.tile-title a:hover { text-decoration: underline; }
+.category-block .poster-grid { margin-bottom: 4px; }

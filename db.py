@@ -305,6 +305,13 @@ def delete_watched(watched_id):
     conn.close()
 
 
+def delete_watched_by_normalized_title(normalized_title):
+    conn = get_conn()
+    conn.execute("DELETE FROM watched_films WHERE normalized_title=?", (normalized_title,))
+    conn.commit()
+    conn.close()
+
+
 def clear_watched():
     conn = get_conn()
     conn.execute("DELETE FROM watched_films")

@@ -25,8 +25,9 @@ import db
 import scraper
 import plex_client
 import tmdb_client
+import wikidata_client
 import films
-from config import AWARDS
+from config import AWARDS, guess_title
 
 log = logging.getLogger("scheduler")
 
@@ -51,25 +52,66 @@ def ensure_seeded():
             db.get_or_create_ceremony(code, year)
 
 
+def _store_categories(ceremony_id, categories, wiki_title, wiki_url):
+    db.clear_categories(ceremony_id)
+    for cat in categories:
+        cat_id = db.add_category(ceremony_id, cat["category"])
+        for nom in cat["nominations"]:
+            db.add_nomination(cat_id, nom["film"], nom.get("nominee"), nom["is_winner"])
+    db.set_ceremony_status(ceremony_id, "scraped", wiki_title=wiki_title, wiki_url=wiki_url)
+
+
+def _try_wikidata(award_code, year, guess_title):
+    """
+    Attempt the clean-data path: resolve the ceremony's Wikidata item and
+    pull structured nominations. Returns (categories, wiki_title) on
+    success, or (None, guess_title) if Wikidata has nothing usable —
+    callers should fall back to scraping Wikipedia's own page in that case.
+    """
+    try:
+        qid = wikidata_client.search_entity(guess_title)
+        if not qid:
+            return None, guess_title
+        flat = wikidata_client.get_nominations(qid)
+    except Exception as e:
+        log.info("Wikidata lookup failed for %s: %s", guess_title, e)
+        return None, guess_title
+
+    if not flat:
+        return None, guess_title
+
+    grouped = {}
+    for n in flat:
+        grouped.setdefault(n["category"], []).append(
+            {"film": n["film"], "nominee": None, "is_winner": n["is_winner"]}
+        )
+    categories = [{"category": cat, "nominations": noms} for cat, noms in grouped.items()]
+    return categories, guess_title
+
+
 def scrape_one(ceremony):
     award = AWARDS[ceremony["award_code"]]
+    guess = guess_title(ceremony["award_code"], ceremony["year"])
+
+    categories, wiki_title = _try_wikidata(ceremony["award_code"], ceremony["year"], guess)
+    if categories:
+        wiki_url = scraper.WIKI_BASE + wiki_title.replace(" ", "_")
+        _store_categories(ceremony["id"], categories, wiki_title, wiki_url)
+        log.info("Scraped %s %s from Wikidata: %d categories", award["name"], ceremony["year"], len(categories))
+        return
+
+    # Wikidata had nothing (item not found, or no nomination statements
+    # yet) — fall back to the existing Wikipedia HTML scraper.
     try:
         html, title = scraper.resolve_page(ceremony["award_code"], ceremony["year"], award["name"])
-        categories = scraper.parse_ceremony_html(html)
         wiki_url = scraper.WIKI_BASE + title.replace(" ", "_")
+        categories = scraper.parse_ceremony_html(html)
         if not categories:
             db.set_ceremony_status(ceremony["id"], "failed", wiki_title=title, wiki_url=wiki_url)
-            log.info("No parseable table yet for %s %s (%s)", award["name"], ceremony["year"], title)
+            log.info("No parseable data anywhere yet for %s %s (%s)", award["name"], ceremony["year"], title)
             return
-
-        db.clear_categories(ceremony["id"])
-        for cat in categories:
-            cat_id = db.add_category(ceremony["id"], cat["category"])
-            for nom in cat["nominations"]:
-                db.add_nomination(cat_id, nom["film"], nom["nominee"], nom["is_winner"])
-
-        db.set_ceremony_status(ceremony["id"], "scraped", wiki_title=title, wiki_url=wiki_url)
-        log.info("Scraped %s %s: %d categories", award["name"], ceremony["year"], len(categories))
+        _store_categories(ceremony["id"], categories, title, wiki_url)
+        log.info("Scraped %s %s from Wikipedia: %d categories", award["name"], ceremony["year"], len(categories))
     except scraper.ScrapeError:
         db.set_ceremony_status(ceremony["id"], "failed")
         log.info("No Wikipedia page yet for %s %s", award["name"], ceremony["year"])
@@ -128,7 +170,11 @@ def resolve_tmdb_matches():
             log.warning("TMDb lookup failed for %s: %s", g["title"], e)
             continue
         if match:
-            db.set_tmdb_match(norm, match["tmdb_id"], match["year"], match["title"], match["poster_path"])
+            db.set_tmdb_match(
+                norm, match["tmdb_id"], match["year"], match["title"], match["poster_path"],
+                runtime=match.get("runtime"), overview=match.get("overview"),
+                vote_average=match.get("vote_average"), imdb_id=match.get("imdb_id"),
+            )
         else:
             db.set_tmdb_match(norm, None, None, None, None)  # cache the miss too
         resolved += 1

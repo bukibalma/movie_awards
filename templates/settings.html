@@ -92,12 +92,41 @@
     <button type="submit">Save & connect</button>
   </form>
 
-  <h4>Radarr</h4>
-  <p class="hint">Live feed of your to-watch list, in the format Radarr's Custom List import expects:</p>
+  <h4>Radarr — two feeds</h4>
+  <p class="hint">
+    <strong>Automatic</strong> — every unwatched nominated film, excluding short films (runtime
+    under 40 minutes):
+  </p>
   <p class="hint"><code>{{ radarr_url }}</code></p>
   <p class="hint">
-    In Radarr: Settings → Lists → <strong>+</strong> → <em>Custom List</em> (under "Advanced" if
-    it's hidden) → paste that URL → save.
+    <strong>Manual</strong> — only films you've explicitly checked "Add to Radarr" for, on the
+    To-watch list or a film's own page. Ignores watched status and the short-film filter — the
+    checkbox is treated as your explicit choice:
   </p>
+  <p class="hint"><code>{{ radarr_manual_url }}</code></p>
+  <p class="hint">
+    In Radarr, add each as its own list: Settings → Lists → <strong>+</strong> → <em>Custom
+    List</em> (under "Advanced" if it's hidden) → paste one of the URLs → save. Add both if you
+    want them both active.
+  </p>
+</section>
+
+<section class="category-block" id="omdb">
+  <h3>OMDb — IMDb / Rotten Tomatoes / Metacritic ratings</h3>
+  <p class="hint">
+    Shows ratings on each film's detail page. IMDb blocks automated access to its own site, so
+    this uses OMDb — a free, legitimate API that aggregates IMDb's rating (and Rotten
+    Tomatoes/Metacritic) without scraping IMDb directly.
+  </p>
+  <p class="hint">
+    Free key (instant, by email): <a href="https://www.omdbapi.com/apikey.aspx" target="_blank">omdbapi.com/apikey.aspx</a>
+  </p>
+  {% if omdb_configured %}
+    <p class="hint">Status: <span class="status-badge status-scraped">connected</span></p>
+  {% endif %}
+  <form method="post" action="{{ url_for('settings_omdb_save') }}" class="manual-form">
+    <input type="text" name="omdb_api_key" placeholder="OMDb API key" required>
+    <button type="submit">Save & connect</button>
+  </form>
 </section>
 {% endblock %}

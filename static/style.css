@@ -101,8 +101,26 @@ tr.winner td { color: #f2c94c; }
 
 /* ---- posters ---- */
 .poster-thumb {
-  width: 40px; height: 60px; object-fit: cover; border-radius: 4px; flex-shrink: 0;
+  width: 70px; height: 105px; object-fit: cover; border-radius: 6px; flex-shrink: 0;
   background: #23262e; border: 1px solid #2a2e38;
 }
-.poster-thumb.placeholder { display: flex; align-items: center; justify-content: center; color: #4a4f5c; font-size: 1.2rem; }
+.poster-thumb.placeholder { display: flex; align-items: center; justify-content: center; color: #4a4f5c; font-size: 1.8rem; }
+.poster-link { display: block; line-height: 0; }
 .watched-tick { color: #6fdd9a; font-size: 1.1rem; flex-shrink: 0; }
+.short-badge { font-size: 0.75rem; color: #9aa0ab; border: 1px solid #2a2e38; border-radius: 6px; padding: 2px 6px; margin-left: 6px; }
+
+/* ---- film detail page ---- */
+.film-header { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 24px; }
+.poster-large {
+  width: 220px; height: 330px; object-fit: cover; border-radius: 10px; flex-shrink: 0;
+  background: #23262e; border: 1px solid #2a2e38;
+}
+.poster-large.placeholder { display: flex; align-items: center; justify-content: center; color: #4a4f5c; font-size: 3rem; }
+.film-meta { flex: 1; min-width: 240px; }
+.film-meta h1 { margin: 0 0 6px; }
+.film-overview { margin: 14px 0; line-height: 1.5; color: #c9ccd3; }
+.rating-row { display: flex; gap: 20px; flex-wrap: wrap; margin: 14px 0; }
+.rating-box { background: #171a21; border: 1px solid #2a2e38; border-radius: 8px; padding: 10px 16px; text-align: center; }
+.rating-box .value { font-size: 1.3rem; font-weight: 700; color: #f2c94c; }
+.rating-box .label { font-size: 0.75rem; color: #9aa0ab; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }

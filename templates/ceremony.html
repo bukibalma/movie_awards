@@ -23,13 +23,20 @@
     <ul class="nominee-list">
       {% for n in entry.nominations %}
         <li class="{{ 'winner' if n.is_winner else '' }}">
+          {% if n.tmdb_id %}<a class="poster-link" href="{{ url_for('film_detail', tmdb_id=n.tmdb_id) }}">{% endif %}
           {% if n.poster %}
             <img class="poster-thumb" src="{{ n.poster }}" alt="">
           {% else %}
             <span class="poster-thumb placeholder">🎬</span>
           {% endif %}
+          {% if n.tmdb_id %}</a>{% endif %}
           {% if n.is_winner %}🏆{% endif %}
-          <strong>{{ n.film }}</strong>{% if n.nominee %} — {{ n.nominee }}{% endif %}
+          {% if n.tmdb_id %}
+            <a href="{{ url_for('film_detail', tmdb_id=n.tmdb_id) }}"><strong>{{ n.film }}</strong></a>
+          {% else %}
+            <strong>{{ n.film }}</strong>
+          {% endif %}
+          {% if n.nominee %} — {{ n.nominee }}{% endif %}
           {% if n.watched %}<span class="watched-tick" title="Watched">✓</span>{% endif %}
         </li>
       {% endfor %}

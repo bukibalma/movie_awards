@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="film-header">
+  {% if poster %}
+    <img class="poster-large" src="{{ poster }}" alt="">
+  {% else %}
+    <span class="poster-large placeholder">🎬</span>
+  {% endif %}
+
+  <div class="film-meta">
+    <h1>{{ match.matched_title or match.normalized_title }}{% if match.year %} <span class="hint">({{ match.year }})</span>{% endif %}</h1>
+
+    {% if match.runtime %}
+      <p class="hint">{{ match.runtime }} min{% if match.runtime < 40 %} · <span class="short-badge">short film</span>{% endif %}</p>
+    {% endif %}
+
+    {% if watched %}
+      <p><span class="watched-tick">✓</span> On your watched list</p>
+    {% endif %}
+
+    {% if match.overview %}
+      <p class="film-overview">{{ match.overview }}</p>
+    {% endif %}
+
+    <div class="rating-row">
+      {% if match.vote_average %}
+        <div class="rating-box"><div class="value">{{ "%.1f"|format(match.vote_average) }}</div><div class="label">TMDb</div></div>
+      {% endif %}
+      {% if ratings and ratings.imdb_rating %}
+        <div class="rating-box"><div class="value">{{ ratings.imdb_rating }}</div><div class="label">IMDb</div></div>
+      {% endif %}
+      {% if ratings and ratings.rotten_tomatoes %}
+        <div class="rating-box"><div class="value">{{ ratings.rotten_tomatoes }}</div><div class="label">Rotten Tomatoes</div></div>
+      {% endif %}
+      {% if ratings and ratings.metacritic %}
+        <div class="rating-box"><div class="value">{{ ratings.metacritic }}</div><div class="label">Metacritic</div></div>
+      {% endif %}
+    </div>
+    {% if not omdb_configured %}
+      <p class="hint">Connect <a href="{{ url_for('settings_page') }}#omdb">OMDb in Settings</a> to show IMDb/Rotten Tomatoes/Metacritic ratings here.</p>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('toggle_radarr_manual') }}" class="checkbox-row">
+      <input type="hidden" name="normalized_title" value="{{ match.normalized_title }}">
+      <input type="hidden" name="value" value="{{ '0' if radarr_manual else '1' }}">
+      <label>
+        <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if radarr_manual else '' }}>
+        Include in manual Radarr list
+      </label>
+    </form>
+  </div>
+</div>
+
+{% if appearances %}
+<section class="category-block">
+  <h3>Award nominations</h3>
+  <ul class="nominee-list">
+    {% for a in appearances|sort(attribute='year', reverse=true) %}
+      <li class="{{ 'winner' if a.is_winner else '' }}">
+        {% if a.is_winner %}🏆{% endif %}
+        {{ a.category }} — {{ awards[a.award_code].name }} {{ a.year }}
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

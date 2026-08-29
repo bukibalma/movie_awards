@@ -164,25 +164,51 @@ personal use, just worth knowing.
 - **Watched ticks**: on ceremony pages, any nominee already on your
   watched list shows a ✓.
 
-## Radarr integration
+## Radarr integration — two feeds
 
-The "Not watched" page exposes a live JSON feed at `/radarr.json` — the
-format Radarr's **Custom List** import type expects.
+- **Automatic** (`/radarr.json`) — every unwatched nominated film,
+  excluding short films (runtime under 40 minutes; unresolved/unknown
+  runtimes are never excluded, since missing data shouldn't silently drop
+  a real feature).
+- **Manual** (`/radarr-manual.json`) — only films you've explicitly
+  checked "Add to Radarr" for, via the checkbox on the To-watch list or a
+  film's own detail page. This one ignores watched status and the
+  short-film filter entirely — checking the box is treated as your
+  explicit choice, full stop.
 
-In Radarr: **Settings → Lists → + → Custom List** (under "Advanced" if
-it's hidden) → paste the URL shown on the Not-watched page → save. Radarr
-polls it on whatever interval you configure and adds anything new.
+Add either or both as separate Custom Lists in Radarr (Settings → Lists
+→ + → Custom List). URLs for both are shown on the Settings page.
 
-**For exact matches, connect TMDb** (Settings page in this app — a free
-API key from themoviedb.org). Without it, the feed sends bare titles and
-Radarr guesses the match via its own search, which is usually right but
-can occasionally pick the wrong film for an ambiguous or very common
-title. With a TMDb key, a background job resolves every unwatched film to
-an exact TMDb ID (cross-checking release year inferred from which
-ceremony it appeared in — award shows typically honor the *previous*
-year's films, festivals the same year), and the feed sends that ID
-directly. Radarr's match is then exact, not a guess. The Not-watched page
-shows which films are ID-matched vs. still title-only.
+**For exact matches, connect TMDb** (Settings page — a free API key from
+themoviedb.org). Without it, both feeds send bare titles and Radarr
+guesses the match via its own search, which is usually right but can
+occasionally pick the wrong film for an ambiguous or very common title.
+With a TMDb key, a background job resolves every film to an exact TMDb
+ID, and the feeds send that ID directly instead.
+
+## Data source: Wikidata first, Wikipedia as fallback
+
+Nominations are now pulled primarily from **Wikidata's structured data**
+rather than parsed out of Wikipedia's prose tables. Wikidata models award
+nominations cleanly — a film (or a person, with a "for work" link back to
+the film) carries a direct "nominated for"/"award received" statement,
+qualified with exactly which ceremony it was for. One structured query
+per ceremony replaces all of the HTML-parsing heuristics.
+
+If Wikidata has no data yet for a given ceremony (coverage is excellent
+for major awards, thinner for smaller festivals or very recent
+ceremonies), the app automatically falls back to scraping the Wikipedia
+page instead — same as before. This happens per-ceremony and requires no
+configuration; a ceremony's "Source" link on its page shows whichever it
+actually used.
+
+## Movie detail pages & ratings
+
+Click any poster or title (once it's TMDb-resolved) to open a film's own
+page: overview, runtime, TMDb rating, and — if OMDb is connected in
+Settings — IMDb rating, Rotten Tomatoes, and Metacritic. Same reasoning
+as everywhere else: IMDb blocks automated access, so the IMDb rating
+comes via OMDb (a free, legitimate aggregator API), not by scraping IMDb.
 
 ## Known limitations
 
@@ -206,6 +232,12 @@ vs. "Person – Film" for Best Actor). Still:
 - Anything the scraper misses can be added by hand from the ceremony page.
 - If a scrape looks off, just re-scrape — it's idempotent, it always
   replaces (never duplicates) that ceremony's data.
+- Tables with no heading above them (lead-section sidebar boxes: "X
+  nominations" counts, presenter/performer lists) are excluded by
+  default, since genuine nominee tables always live under a real section
+  heading. Citation footnote markers ("[1]") are stripped globally before
+  parsing, since left in place they can defeat filters that check for a
+  bare number.
 
 ## Project structure
 
@@ -215,8 +247,10 @@ db.py           SQLite schema + queries
 scraper.py      Wikipedia fetch + HTML parsing
 scheduler.py    Background jobs (Wikipedia scrape, drop-folder scan, Plex sync, TMDb resolution)
 plex_client.py  Plex watch-history API client
-tmdb_client.py  TMDb search/resolution client
+tmdb_client.py  TMDb search/resolution/details client
+omdb_client.py  OMDb ratings client (IMDb/RT/Metacritic)
 films.py        Shared film-grouping logic (app.py + scheduler.py)
+wikidata_client.py  Wikidata SPARQL client — primary nomination data source
 imdb_import.py  IMDb CSV/text parsing
 watch_import.py Drop-folder watcher
 config.py       Award list and Wikipedia title patterns

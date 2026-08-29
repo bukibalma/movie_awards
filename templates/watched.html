@@ -21,13 +21,17 @@
   {% for w in watched %}
     <tr>
       <td>
+        {% if w.tmdb_id %}<a class="poster-link" href="{{ url_for('film_detail', tmdb_id=w.tmdb_id) }}">{% endif %}
         {% if w.poster %}
           <img class="poster-thumb" src="{{ w.poster }}" alt="">
         {% else %}
           <span class="poster-thumb placeholder">🎬</span>
         {% endif %}
+        {% if w.tmdb_id %}</a>{% endif %}
       </td>
-      <td>{{ w.title }}</td>
+      <td>
+        {% if w.tmdb_id %}<a href="{{ url_for('film_detail', tmdb_id=w.tmdb_id) }}">{{ w.title }}</a>{% else %}{{ w.title }}{% endif %}
+      </td>
       <td>{{ w.year or '' }}</td>
       <td><span class="status-badge status-{{ 'scraped' if w.source == 'plex' else 'manual' }}">{{ w.source }}</span></td>
       <td>

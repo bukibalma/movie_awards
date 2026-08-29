@@ -40,10 +40,30 @@ def titles_needing_posters():
     return combined
 
 
-def poster_url(normalized_title):
+def poster_url(normalized_title, size="w342"):
     import tmdb_client
     match = db.get_tmdb_match(normalized_title)
-    return tmdb_client.poster_url(match["poster_path"]) if match else None
+    return tmdb_client.poster_url(match["poster_path"], size=size) if match else None
+
+
+def tmdb_id_for(normalized_title):
+    match = db.get_tmdb_match(normalized_title)
+    return match["tmdb_id"] if match and match.get("tmdb_id") else None
+
+
+SHORT_FILM_RUNTIME_MINUTES = 40
+
+
+def is_short_film(normalized_title):
+    """
+    True only when we have a confirmed short runtime — unresolved or
+    unknown-runtime films are never excluded on this basis, since we'd
+    rather show an extra short than silently drop a real feature due to
+    missing data.
+    """
+    match = db.get_tmdb_match(normalized_title)
+    runtime = match.get("runtime") if match else None
+    return runtime is not None and runtime < SHORT_FILM_RUNTIME_MINUTES
 
 
 def year_hint(appearances, awards_config):

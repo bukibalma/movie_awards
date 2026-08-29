@@ -61,7 +61,24 @@ CREATE TABLE IF NOT EXISTS tmdb_matches (
     year INTEGER,
     matched_title TEXT,
     poster_path TEXT,
+    runtime INTEGER,
+    overview TEXT,
+    vote_average REAL,
+    imdb_id TEXT,
     resolved_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS film_flags (
+    normalized_title TEXT PRIMARY KEY,
+    radarr_manual INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS omdb_ratings (
+    imdb_id TEXT PRIMARY KEY,
+    imdb_rating TEXT,
+    rotten_tomatoes TEXT,
+    metacritic TEXT,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 
@@ -75,6 +92,10 @@ def init_db():
         "ALTER TABLE ceremonies ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE watched_films ADD COLUMN source TEXT NOT NULL DEFAULT 'import'",
         "ALTER TABLE tmdb_matches ADD COLUMN poster_path TEXT",
+        "ALTER TABLE tmdb_matches ADD COLUMN runtime INTEGER",
+        "ALTER TABLE tmdb_matches ADD COLUMN overview TEXT",
+        "ALTER TABLE tmdb_matches ADD COLUMN vote_average REAL",
+        "ALTER TABLE tmdb_matches ADD COLUMN imdb_id TEXT",
     ):
         try:
             conn.execute(stmt)
@@ -322,16 +343,86 @@ def get_tmdb_match(normalized_title):
     return dict(row) if row else None
 
 
-def set_tmdb_match(normalized_title, tmdb_id, year, matched_title, poster_path=None):
+def get_tmdb_match_by_id(tmdb_id):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT * FROM tmdb_matches WHERE tmdb_id=?", (tmdb_id,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def set_tmdb_match(normalized_title, tmdb_id, year, matched_title, poster_path=None,
+                    runtime=None, overview=None, vote_average=None, imdb_id=None):
     conn = get_conn()
     conn.execute(
-        "INSERT INTO tmdb_matches (normalized_title, tmdb_id, year, matched_title, poster_path, resolved_at) "
-        "VALUES (?,?,?,?,?, datetime('now')) "
+        "INSERT INTO tmdb_matches (normalized_title, tmdb_id, year, matched_title, "
+        "poster_path, runtime, overview, vote_average, imdb_id, resolved_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?, datetime('now')) "
         "ON CONFLICT(normalized_title) DO UPDATE SET "
         "tmdb_id=excluded.tmdb_id, year=excluded.year, "
         "matched_title=excluded.matched_title, poster_path=excluded.poster_path, "
+        "runtime=excluded.runtime, overview=excluded.overview, "
+        "vote_average=excluded.vote_average, imdb_id=excluded.imdb_id, "
         "resolved_at=excluded.resolved_at",
-        (normalized_title, tmdb_id, year, matched_title, poster_path),
+        (normalized_title, tmdb_id, year, matched_title, poster_path,
+         runtime, overview, vote_average, imdb_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---- manual Radarr-list flag ----
+
+def get_radarr_manual(normalized_title):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT radarr_manual FROM film_flags WHERE normalized_title=?", (normalized_title,)
+    ).fetchone()
+    conn.close()
+    return bool(row and row["radarr_manual"])
+
+
+def set_radarr_manual(normalized_title, value):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO film_flags (normalized_title, radarr_manual) VALUES (?,?) "
+        "ON CONFLICT(normalized_title) DO UPDATE SET radarr_manual=excluded.radarr_manual",
+        (normalized_title, 1 if value else 0),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_radarr_manual_titles():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT normalized_title FROM film_flags WHERE radarr_manual=1"
+    ).fetchall()
+    conn.close()
+    return {r[0] for r in rows}
+
+
+# ---- OMDb rating cache ----
+
+def get_omdb_ratings(imdb_id):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT * FROM omdb_ratings WHERE imdb_id=?", (imdb_id,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def set_omdb_ratings(imdb_id, imdb_rating, rotten_tomatoes, metacritic):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO omdb_ratings (imdb_id, imdb_rating, rotten_tomatoes, metacritic, fetched_at) "
+        "VALUES (?,?,?,?, datetime('now')) "
+        "ON CONFLICT(imdb_id) DO UPDATE SET "
+        "imdb_rating=excluded.imdb_rating, rotten_tomatoes=excluded.rotten_tomatoes, "
+        "metacritic=excluded.metacritic, fetched_at=excluded.fetched_at",
+        (imdb_id, imdb_rating, rotten_tomatoes, metacritic),
     )
     conn.commit()
     conn.close()

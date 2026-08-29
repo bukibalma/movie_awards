@@ -70,6 +70,7 @@ def ceremony_detail(ceremony_id):
             norm = normalize_title(n["film"])
             n["watched"] = norm in watched
             n["poster"] = films.poster_url(norm)
+            n["tmdb_id"] = films.tmdb_id_for(norm)
     return render_template("ceremony.html", ceremony=ceremony, award=award, data=data)
 
 
@@ -142,11 +143,16 @@ def search():
 def unwatched_page():
     groups = films.group_nominated_films()
     unwatched = films.unwatched_groups()
+    manual_flags = db.list_radarr_manual_titles()
     film_list = []
     for norm, g in unwatched.items():
         match = db.get_tmdb_match(norm)
         g["tmdb_matched"] = bool(match and match.get("tmdb_id"))
+        g["tmdb_id"] = films.tmdb_id_for(norm)
         g["poster"] = films.poster_url(norm)
+        g["is_short"] = films.is_short_film(norm)
+        g["radarr_manual"] = norm in manual_flags
+        g["normalized_title"] = norm
         film_list.append(g)
     film_list.sort(key=lambda g: g["title"].lower())
 
@@ -154,22 +160,68 @@ def unwatched_page():
     return render_template(
         "unwatched.html", films=film_list, total=len(groups), awards=AWARDS,
         radarr_url=url_for("radarr_export", _external=True),
+        radarr_manual_url=url_for("radarr_export_manual", _external=True),
         tmdb_configured=tmdb_configured,
+    )
+
+
+@app.route("/film/toggle-radarr", methods=["POST"])
+def toggle_radarr_manual():
+    norm = request.form.get("normalized_title", "")
+    value = request.form.get("value") == "1"
+    if norm:
+        db.set_radarr_manual(norm, value)
+    return redirect(request.referrer or url_for("unwatched_page"))
+
+
+@app.route("/film/<int:tmdb_id>")
+def film_detail(tmdb_id):
+    match = db.get_tmdb_match_by_id(tmdb_id)
+    if not match:
+        return "Not found", 404
+    norm = match["normalized_title"]
+
+    groups = films.group_nominated_films()
+    appearances = groups.get(norm, {}).get("appearances", [])
+    watched = norm in db.watched_normalized_titles()
+    radarr_manual = norm in db.list_radarr_manual_titles()
+
+    ratings = None
+    omdb_key = db.get_setting("omdb_api_key")
+    if match.get("imdb_id") and omdb_key:
+        ratings = db.get_omdb_ratings(match["imdb_id"])
+        if ratings is None:
+            import omdb_client
+            try:
+                fetched = omdb_client.get_ratings(omdb_key, match["imdb_id"])
+                if fetched:
+                    db.set_omdb_ratings(match["imdb_id"], fetched["imdb_rating"],
+                                         fetched["rotten_tomatoes"], fetched["metacritic"])
+                    ratings = fetched
+            except Exception:
+                pass
+
+    return render_template(
+        "film.html", match=match, appearances=appearances, watched=watched,
+        radarr_manual=radarr_manual, ratings=ratings,
+        poster=films.poster_url(norm, size="w500"),
+        omdb_configured=bool(omdb_key), awards=AWARDS,
     )
 
 
 @app.route("/radarr.json")
 def radarr_export():
     """
-    A plain JSON array of unwatched nominated films — the format Radarr's
-    'Custom List' import type expects. When a title has been resolved to a
-    TMDb ID (see Settings), we send that ID directly so Radarr's match is
-    exact rather than a guess from a bare title; otherwise we fall back to
-    title-only, which Radarr will look up itself on import.
+    Fully automatic feed: every unwatched nominated film, excluding
+    confirmed short films, in the plain array format Radarr's 'Custom
+    List' import type expects. Films resolved to a TMDb ID get sent with
+    that ID for an exact match; otherwise Radarr looks the title up itself.
     """
     unwatched = films.unwatched_groups()
     payload = []
     for norm, g in unwatched.items():
+        if films.is_short_film(norm):
+            continue
         match = db.get_tmdb_match(norm)
         if match and match.get("tmdb_id"):
             payload.append({
@@ -183,10 +235,34 @@ def radarr_export():
     return jsonify(payload)
 
 
+@app.route("/radarr-manual.json")
+def radarr_export_manual():
+    """Curated feed: only films explicitly checked via the manual-Radarr
+    checkbox, regardless of watched/short-film status — the checkbox is
+    treated as an explicit override of the automatic filters."""
+    manual_titles = db.list_radarr_manual_titles()
+    groups = films.group_nominated_films()
+    payload = []
+    for norm in manual_titles:
+        title = groups.get(norm, {}).get("title")
+        match = db.get_tmdb_match(norm)
+        if match and match.get("tmdb_id"):
+            payload.append({
+                "tmdbId": match["tmdb_id"],
+                "title": match["matched_title"] or title or norm,
+                "year": match["year"],
+            })
+        elif title:
+            payload.append({"title": title})
+    payload.sort(key=lambda d: d["title"].lower())
+    return jsonify(payload)
+
+
 @app.route("/settings")
 def settings_page():
     plex_configured = bool(db.get_setting("plex_base_url") and db.get_setting("plex_token"))
     tmdb_configured = bool(db.get_setting("tmdb_api_key"))
+    omdb_configured = bool(db.get_setting("omdb_api_key"))
     unwatched_count = len(films.unwatched_groups())
     resolved_count = sum(
         1 for norm in films.unwatched_groups()
@@ -198,9 +274,11 @@ def settings_page():
         plex_configured=plex_configured,
         plex_last_synced=db.get_setting("plex_last_synced"),
         tmdb_configured=tmdb_configured,
+        omdb_configured=omdb_configured,
         unwatched_count=unwatched_count,
         resolved_count=resolved_count,
         radarr_url=url_for("radarr_export", _external=True),
+        radarr_manual_url=url_for("radarr_export_manual", _external=True),
     )
 
 
@@ -263,11 +341,33 @@ def settings_tmdb_resolve_now():
     return redirect(url_for("settings_page"))
 
 
+@app.route("/settings/omdb", methods=["POST"])
+def settings_omdb_save():
+    import omdb_client
+
+    api_key = request.form.get("omdb_api_key", "").strip()
+    if not api_key:
+        flash("OMDb API key is required.", "error")
+        return redirect(url_for("settings_page"))
+
+    try:
+        omdb_client.test_api_key(api_key)
+    except Exception as e:
+        flash(f"Couldn't verify that OMDb key: {e}", "error")
+        return redirect(url_for("settings_page"))
+
+    db.set_setting("omdb_api_key", api_key)
+    flash("OMDb key saved. Ratings will now show on movie detail pages.", "success")
+    return redirect(url_for("settings_page"))
+
+
 @app.route("/watched")
 def watched_page():
     watched = db.list_watched()
     for w in watched:
-        w["poster"] = films.poster_url(normalize_title(w["title"]))
+        norm = normalize_title(w["title"])
+        w["poster"] = films.poster_url(norm)
+        w["tmdb_id"] = films.tmdb_id_for(norm)
     return render_template("watched.html", watched=watched)
 
 

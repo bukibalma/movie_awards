@@ -101,12 +101,14 @@ HEADING_DENY = (
 )
 
 # Column headers that are clearly NOT a nomination category (attribute
-# columns on a flat film-listing table) — these get skipped as a whole
-# column, since e.g. "Director(s)" holds names, not films.
+# columns on a flat film-listing table, or people-listing tables like
+# presenters/performers) — these get skipped as a whole column.
 NON_CATEGORY_HEADERS = {
     "year", "country", "language", "notes", "no.", "id", "ref", "refs",
     "runtime", "director", "director(s)", "producer(s)",
     "production company", "genre", "date",
+    "nominations", "wins", "win", "award", "awards",
+    "name", "name(s)", "role", "presenter(s)", "performer(s)",
 }
 
 # Column headers that name a title column directly — when present, we take
@@ -124,6 +126,13 @@ def _nearest_heading(table):
 
 
 def _section_allowed(heading):
+    # No heading found at all almost always means this table sits in the
+    # article's lead/infobox area (ceremony-summary sidebars: nomination
+    # counts, presenters, performers) rather than in an actual nominees
+    # section — those always live under a real heading. Default to
+    # excluding, not including.
+    if not heading:
+        return False
     return not any(bad in heading for bad in HEADING_DENY)
 
 
@@ -189,6 +198,15 @@ def parse_ceremony_html(html):
     spot-checked and can be corrected manually in the UI.
     """
     soup = BeautifulSoup(html, "lxml")
+
+    # Strip Wikipedia's citation footnote markers (e.g. the "[1]" after a
+    # sentence) everywhere up front. Left in place, a cell containing just
+    # a bare nomination count ("11") renders as "11 [1]" once a reference
+    # is attached, which defeats the pure-digit junk filter below and also
+    # leaves stray "[ 25 ]"-style text in scraped entries.
+    for sup in soup.find_all("sup", class_="reference"):
+        sup.decompose()
+
     categories = []
 
     for table in soup.find_all("table", class_=re.compile("wikitable")):

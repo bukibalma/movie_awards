@@ -4,7 +4,6 @@ import threading
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 
 import db
-import scraper
 import scheduler
 import imdb_import
 import films
@@ -97,32 +96,13 @@ def scrape_ceremony(ceremony_id):
     ceremony = db.get_ceremony(ceremony_id)
     if not ceremony:
         return "Not found", 404
-    award = AWARDS[ceremony["award_code"]]
-    try:
-        html, title = scraper.resolve_page(ceremony["award_code"], ceremony["year"], award["name"])
-        categories = scraper.parse_ceremony_html(html)
-        if not categories:
-            db.set_ceremony_status(ceremony_id, "failed", wiki_title=title,
-                                    wiki_url=scraper.WIKI_BASE + title.replace(" ", "_"))
-            flash(f"Fetched '{title}' but couldn't find a nominee table to parse. "
-                  f"You can add nominations manually.", "warning")
-            return redirect(url_for("ceremony_detail", ceremony_id=ceremony_id))
-
-        db.clear_categories(ceremony_id)
-        for cat in categories:
-            cat_id = db.add_category(ceremony_id, cat["category"])
-            for nom in cat["nominations"]:
-                db.add_nomination(cat_id, nom["film"], nom["nominee"], nom["is_winner"])
-
-        db.set_ceremony_status(ceremony_id, "scraped", wiki_title=title,
-                                wiki_url=scraper.WIKI_BASE + title.replace(" ", "_"))
-        flash(f"Scraped {len(categories)} categories from '{title}'.", "success")
-    except scraper.ScrapeError as e:
-        db.set_ceremony_status(ceremony_id, "failed")
-        flash(str(e), "error")
-    except Exception as e:
-        db.set_ceremony_status(ceremony_id, "failed")
-        flash(f"Unexpected error: {e}", "error")
+    scheduler.scrape_one(ceremony)
+    updated = db.get_ceremony(ceremony_id)
+    if updated["status"] == "scraped":
+        flash(f"Scraped successfully from {updated['wiki_title']}.", "success")
+    else:
+        flash("Couldn't find nominee data yet — you can add nominations manually below, "
+              "or it may just not be on Wikidata/Wikipedia yet.", "warning")
     return redirect(url_for("ceremony_detail", ceremony_id=ceremony_id))
 
 
